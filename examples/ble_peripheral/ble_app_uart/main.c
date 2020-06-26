@@ -708,11 +708,8 @@ static void advertising_start(void)
 static void logger_thread(void * arg)
 {
     UNUSED_PARAMETER(arg);
-
-    while (1)
-    {
+    while (1) {
         NRF_LOG_FLUSH();
-
         vTaskSuspend(NULL); // Suspend myself
     }
 }
@@ -724,7 +721,7 @@ static void logger_thread(void * arg)
 void vApplicationIdleHook( void )
 {
 #if NRF_LOG_ENABLED
-     vTaskResume(m_logger_thread);
+    vTaskResume(m_logger_thread);
 #endif
 }
 
@@ -736,16 +733,6 @@ int main(void)
 
     // Initialize.
     uart_init();
-	  
-		// Do not start any interrupt that uses system functions before system initialisation.
-    // The best solution is to start the OS before any other initalisation.
-#if 0 //NRF_LOG_ENABLED
-    // Start execution.
-    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))
-    {
-        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
-    }
-#endif
 		
     log_init();
     timers_init();
@@ -759,12 +746,21 @@ int main(void)
     conn_params_init();
 
     // Start execution.
-    printf("\r\nUART started.\r\n");
+	NRF_LOG_INFO("Smart dev started, build time: %s %s", __DATE__, __TIME__);
     NRF_LOG_INFO("Debug logging for UART over RTT started.");
     // advertising_start();
     // Create a FreeRTOS task for the BLE stack.
     // The task will run advertising_start() before entering its loop.
     nrf_sdh_freertos_init(advertising_start, &erase_bonds);
+		// Do not start any interrupt that uses system functions before system initialisation.
+    // The best solution is to start the OS before any other initalisation.
+#if NRF_LOG_ENABLED
+    // Start execution.
+    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+#endif
 
     // Start FreeRTOS scheduler.
     vTaskStartScheduler();
