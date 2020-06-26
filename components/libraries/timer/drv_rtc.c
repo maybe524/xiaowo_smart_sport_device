@@ -333,7 +333,8 @@ void drv_rtc_irq_trigger(drv_rtc_t const * const p_instance)
 }
 
 #define drv_rtc_rtc_0_irq_handler RTC0_IRQHandler
-#define drv_rtc_rtc_1_irq_handler RTC1_IRQHandler
+// Modify by xiaowen.huang@hotmail.com
+// #define drv_rtc_rtc_1_irq_handler RTC1_IRQHandler
 #define drv_rtc_rtc_2_irq_handler RTC2_IRQHandler
 
 #if defined(APP_TIMER_V2_RTC0_ENABLED)

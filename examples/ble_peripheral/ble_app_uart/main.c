@@ -68,6 +68,8 @@
 #include "app_util_platform.h"
 #include "bsp_btn_ble.h"
 #include "nrf_pwr_mgmt.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -117,6 +119,9 @@ static ble_uuid_t m_adv_uuids[]          =                                      
     {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}
 };
 
+#if NRF_LOG_ENABLED
+static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
+#endif
 
 /**@brief Function for assert macro callback.
  *
@@ -691,6 +696,37 @@ static void advertising_start(void)
     APP_ERROR_CHECK(err_code);
 }
 
+#if NRF_LOG_ENABLED
+/**@brief Thread for handling the logger.
+ *
+ * @details This thread is responsible for processing log entries if logs are deferred.
+ *          Thread flushes all log entries and suspends. It is resumed by idle task hook.
+ *
+ * @param[in]   arg   Pointer used for passing some arbitrary information (context) from the
+ *                    osThreadCreate() call to the thread.
+ */
+static void logger_thread(void * arg)
+{
+    UNUSED_PARAMETER(arg);
+
+    while (1)
+    {
+        NRF_LOG_FLUSH();
+
+        vTaskSuspend(NULL); // Suspend myself
+    }
+}
+#endif //NRF_LOG_ENABLED
+
+/**@brief A function which is hooked to idle task.
+ * @note Idle hook must be enabled in FreeRTOS configuration (configUSE_IDLE_HOOK).
+ */
+void vApplicationIdleHook( void )
+{
+#if NRF_LOG_ENABLED
+     vTaskResume(m_logger_thread);
+#endif
+}
 
 /**@brief Application main function.
  */
@@ -700,6 +736,17 @@ int main(void)
 
     // Initialize.
     uart_init();
+	  
+		// Do not start any interrupt that uses system functions before system initialisation.
+    // The best solution is to start the OS before any other initalisation.
+#if 0 //NRF_LOG_ENABLED
+    // Start execution.
+    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+#endif
+		
     log_init();
     timers_init();
     buttons_leds_init(&erase_bonds);
@@ -714,12 +761,17 @@ int main(void)
     // Start execution.
     printf("\r\nUART started.\r\n");
     NRF_LOG_INFO("Debug logging for UART over RTT started.");
-    advertising_start();
+    // advertising_start();
+    // Create a FreeRTOS task for the BLE stack.
+    // The task will run advertising_start() before entering its loop.
+    nrf_sdh_freertos_init(advertising_start, &erase_bonds);
 
-    // Enter main loop.
+    // Start FreeRTOS scheduler.
+    vTaskStartScheduler();
+
     for (;;)
     {
-        idle_state_handle();
+        APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);
     }
 }
 

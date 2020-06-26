@@ -138,7 +138,7 @@ extern "C" {
 #define nrfx_swi_1_irq_handler      SWI1_EGU1_IRQHandler
 
 // SWI2_EGU2_IRQn
-#define nrfx_swi_2_irq_handler      SWI2_EGU2_IRQHandler
+//#define nrfx_swi_2_irq_handler      SWI2_EGU2_IRQHandler
 
 // SWI3_EGU3_IRQn
 #define nrfx_swi_3_irq_handler      SWI3_EGU3_IRQHandler
