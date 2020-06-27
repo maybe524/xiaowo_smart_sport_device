@@ -48,6 +48,10 @@
 #include "app_error.h"
 #include "ble.h"
 
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
 bool ble_srv_is_notification_enabled(uint8_t const * p_encoded_data)
 {
     uint16_t cccd_value = uint16_decode(p_encoded_data);
@@ -115,7 +119,6 @@ static inline void set_security_req(security_req_t level, ble_gap_conn_sec_mode_
     }
     return;
 }
-
 
 uint32_t characteristic_add(uint16_t                   service_handle,
                             ble_add_char_params_t *    p_char_props,
@@ -192,6 +195,7 @@ uint32_t characteristic_add(uint16_t                   service_handle,
     {
         char_md.p_char_pf = p_char_props->p_presentation_format;
     }
+
     return sd_ble_gatts_characteristic_add(service_handle,
                                            &char_md,
                                            &attr_char_value,

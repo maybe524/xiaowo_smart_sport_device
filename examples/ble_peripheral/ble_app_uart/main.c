@@ -48,7 +48,6 @@
  * This application uses the @ref srvlib_conn_params module.
  */
 
-
 #include <stdint.h>
 #include <string.h>
 #include "nordic_common.h"
@@ -70,6 +69,9 @@
 #include "nrf_pwr_mgmt.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "app.h"
+#include "nrf_fstorage.h"
+#include "nrf_fstorage_nvmc.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -122,6 +124,8 @@ static ble_uuid_t m_adv_uuids[]          =                                      
 #if NRF_LOG_ENABLED
 static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
 #endif
+
+bool is_erased_done = false;
 
 /**@brief Function for assert macro callback.
  *
@@ -200,32 +204,23 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 /**@snippet [Handling the data received over BLE] */
 static void nus_data_handler(ble_nus_evt_t * p_evt)
 {
-
-    if (p_evt->type == BLE_NUS_EVT_RX_DATA)
-    {
-        uint32_t err_code;
-
-        NRF_LOG_DEBUG("Received data from BLE NUS. Writing data on UART.");
-        NRF_LOG_HEXDUMP_DEBUG(p_evt->params.rx_data.p_data, p_evt->params.rx_data.length);
-
-        for (uint32_t i = 0; i < p_evt->params.rx_data.length; i++)
-        {
-            do
-            {
-                err_code = app_uart_put(p_evt->params.rx_data.p_data[i]);
-                if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_BUSY))
-                {
-                    NRF_LOG_ERROR("Failed receiving NUS message. Error 0x%x. ", err_code);
-                    APP_ERROR_CHECK(err_code);
-                }
-            } while (err_code == NRF_ERROR_BUSY);
+    struct command_gen *cmd = NULL;
+    uint32_t rx_length = 0, i = 0;
+    
+    NRF_LOG_INFO("nus_data_handler");
+    if (p_evt->type == BLE_NUS_EVT_RX_DATA) {
+        // p_evt->params.rx_data.p_data, p_evt->params.rx_data.length
+        for (i = 0; i < p_evt->params.rx_data.length; i++) {
+            NRF_LOG_INFO("data[%02d]: 0x%02x", i, p_evt->params.rx_data.p_data[i]);
         }
-        if (p_evt->params.rx_data.p_data[p_evt->params.rx_data.length - 1] == '\r')
-        {
-            while (app_uart_put('\n') == NRF_ERROR_BUSY);
+        cmd = (struct command_gen *)p_evt->params.rx_data.p_data;
+        rx_length = p_evt->params.rx_data.length;
+        switch (cmd->id) {
+        case CMD_H2D_ID_BIND:
+            bind_mark_bind_num(cmd->data);
+            break;
         }
     }
-
 }
 /**@snippet [Handling the data received over BLE] */
 
@@ -248,7 +243,7 @@ static void services_init(void)
     memset(&nus_init, 0, sizeof(nus_init));
 
     nus_init.data_handler = nus_data_handler;
-
+    // 蓝牙数据透传模式
     err_code = ble_nus_init(&m_nus, &nus_init);
     APP_ERROR_CHECK(err_code);
 }
@@ -339,8 +334,8 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 {
     uint32_t err_code;
 
-    switch (ble_adv_evt)
-    {
+    NRF_LOG_INFO("on_adv_evt, ble_adv_evt: %d", ble_adv_evt);
+    switch (ble_adv_evt) {
         case BLE_ADV_EVT_FAST:
             err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
             APP_ERROR_CHECK(err_code);
@@ -363,8 +358,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
     uint32_t err_code;
 
-    switch (p_ble_evt->header.evt_id)
-    {
+    NRF_LOG_INFO("ble_evt_handler, id: %d", p_ble_evt->header.evt_id - BLE_GAP_EVT_BASE);
+    switch (p_ble_evt->header.evt_id) {
         case BLE_GAP_EVT_CONNECTED:
             NRF_LOG_INFO("Connected");
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
@@ -382,7 +377,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
-            NRF_LOG_DEBUG("PHY update request.");
+            NRF_LOG_INFO("PHY update request.");
             ble_gap_phys_t const phys =
             {
                 .rx_phys = BLE_GAP_PHY_AUTO,
@@ -393,18 +388,21 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         } break;
 
         case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+            NRF_LOG_INFO("BLE_GAP_EVT_SEC_PARAMS_REQUEST");
             // Pairing not supported
             err_code = sd_ble_gap_sec_params_reply(m_conn_handle, BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP, NULL, NULL);
             APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GATTS_EVT_SYS_ATTR_MISSING:
+            NRF_LOG_INFO("BLE_GATTS_EVT_SYS_ATTR_MISSING");
             // No system attributes have been stored.
             err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0, 0);
             APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GATTC_EVT_TIMEOUT:
+            NRF_LOG_INFO("BLE_GATTC_EVT_TIMEOUT");
             // Disconnect on GATT Client timeout event.
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -412,6 +410,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             break;
 
         case BLE_GATTS_EVT_TIMEOUT:
+            NRF_LOG_INFO("BLE_GATTS_EVT_TIMEOUT");
             // Disconnect on GATT Server timeout event.
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -445,6 +444,7 @@ static void ble_stack_init(void)
     // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("ram_start: %08x", ram_start);
 
     // Register a handler for BLE events.
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
@@ -485,33 +485,30 @@ void gatt_init(void)
 void bsp_event_handler(bsp_event_t event)
 {
     uint32_t err_code;
-    switch (event)
-    {
-        case BSP_EVENT_SLEEP:
-            sleep_mode_enter();
-            break;
-
-        case BSP_EVENT_DISCONNECT:
-            err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+    
+    NRF_LOG_INFO("bsp_event_handler, event: %d", event);
+    switch (event) {
+    case BSP_EVENT_SLEEP:
+        sleep_mode_enter();
+        break;
+    case BSP_EVENT_DISCONNECT:
+        err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+        if (err_code != NRF_ERROR_INVALID_STATE) {
+            APP_ERROR_CHECK(err_code);
+        }
+        break;
+    case BSP_EVENT_WHITELIST_OFF:
+        if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
+        {
+            err_code = ble_advertising_restart_without_whitelist(&m_advertising);
             if (err_code != NRF_ERROR_INVALID_STATE)
             {
                 APP_ERROR_CHECK(err_code);
             }
-            break;
-
-        case BSP_EVENT_WHITELIST_OFF:
-            if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
-            {
-                err_code = ble_advertising_restart_without_whitelist(&m_advertising);
-                if (err_code != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(err_code);
-                }
-            }
-            break;
-
-        default:
-            break;
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -529,6 +526,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
     static uint8_t index = 0;
     uint32_t       err_code;
 
+    NRF_LOG_INFO("uart_event_handle, evt_type: %d", p_event->evt_type);
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
@@ -707,9 +705,12 @@ static void advertising_start(void)
  */
 static void logger_thread(void * arg)
 {
+    unsigned int n = 0;
+    
     UNUSED_PARAMETER(arg);
     while (1) {
         NRF_LOG_FLUSH();
+        // NRF_LOG_INFO("%s %d: %08d", __func__, __LINE__, n++);
         vTaskSuspend(NULL); // Suspend myself
     }
 }
@@ -725,12 +726,115 @@ void vApplicationIdleHook( void )
 #endif
 }
 
+/**@brief   Sleep until an event is received. */
+void power_manage(void)
+{
+#ifdef SOFTDEVICE_PRESENT
+    (void) sd_app_evt_wait();
+#else
+    __WFE();
+#endif
+}
+
+static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
+{
+    if (p_evt->result != NRF_SUCCESS) {
+        NRF_LOG_INFO("--> Event received: ERROR while executing an fstorage operation.");
+        return;
+    }
+    switch (p_evt->id) {
+    case NRF_FSTORAGE_EVT_WRITE_RESULT:
+        NRF_LOG_INFO("--> Event received: wrote %d bytes at address 0x%x.", p_evt->len, p_evt->addr);
+        break;
+    case NRF_FSTORAGE_EVT_ERASE_RESULT:
+        is_erased_done = true;
+        NRF_LOG_INFO("--> Event received: erased %d page from address 0x%x.", p_evt->len, p_evt->addr);
+        break;
+    default:
+        break;
+    }
+}
+
+NRF_FSTORAGE_DEF(nrf_fstorage_t fstorage) =
+{
+    /* Set a handler for fstorage events. */
+    .evt_handler = fstorage_evt_handler,
+
+    /* These below are the boundaries of the flash space assigned to this instance of fstorage.
+     * You must set these manually, even at runtime, before nrf_fstorage_init() is called.
+     * The function nrf5_flash_end_addr_get() can be used to retrieve the last address on the
+     * last page of flash available to write data. */
+    .start_addr = 0x7c000,
+    .end_addr   = 0x7d000,
+};
+
+static void print_flash_info(nrf_fstorage_t * p_fstorage)
+{
+    NRF_LOG_INFO("========| flash info |========");
+    NRF_LOG_INFO("erase unit: \t%d bytes",      p_fstorage->p_flash_info->erase_unit);
+    NRF_LOG_INFO("program unit: \t%d bytes",    p_fstorage->p_flash_info->program_unit);
+    NRF_LOG_INFO("==============================");
+}
+
+/**@brief   Helper function to obtain the last address on the last page of the on-chip flash that
+ *          can be used to write user data.
+ */
+static uint32_t nrf5_flash_end_addr_get()
+{
+    uint32_t const bootloader_addr = BOOTLOADER_ADDRESS;
+    uint32_t const page_sz         = NRF_FICR->CODEPAGESIZE;
+    uint32_t const code_sz         = NRF_FICR->CODESIZE;
+
+    return (bootloader_addr != 0xFFFFFFFF ?
+            bootloader_addr : (code_sz * page_sz));
+}
+
+static int nrf_platform_storage_init(void)
+{
+    ret_code_t rc;
+    nrf_fstorage_api_t * p_fs_api;
+
+     /* Initialize an fstorage instance using the nrf_fstorage_nvmc backend.
+     * nrf_fstorage_nvmc uses the NVMC peripheral. This implementation can be used when the
+     * SoftDevice is disabled or not present.
+     *
+     * Using this implementation when the SoftDevice is enabled results in a hardfault. */
+    p_fs_api = &nrf_fstorage_nvmc;
+
+    rc = nrf_fstorage_init(&fstorage, p_fs_api, NULL);
+    APP_ERROR_CHECK(rc);
+
+    print_flash_info(&fstorage);
+
+    /* It is possible to set the start and end addresses of an fstorage instance at runtime.
+     * They can be set multiple times, should it be needed. The helper function below can
+     * be used to determine the last address on the last page of flash memory available to
+     * store data. */
+    (void) nrf5_flash_end_addr_get();
+
+    return 0;
+}
+
+void wait_for_flash_ready(nrf_fstorage_t const * p_fstorage)
+{
+    /* While fstorage is busy, sleep and wait for an event. */
+    while (nrf_fstorage_is_busy(p_fstorage))
+    {
+        power_manage();
+    }
+}
+
+nrf_fstorage_t *get_fstorage_ins(void)
+{
+    return &fstorage;
+}
+
 /**@brief Application main function.
  */
 int main(void)
 {
     bool erase_bonds;
-
+    
     // Initialize.
     uart_init();
 		
@@ -746,13 +850,13 @@ int main(void)
     conn_params_init();
 
     // Start execution.
-	NRF_LOG_INFO("Smart dev started, build time: %s %s", __DATE__, __TIME__);
-    NRF_LOG_INFO("Debug logging for UART over RTT started.");
+	NRF_LOG_INFO("smart dev started, build time: %s %s", __DATE__, __TIME__);
+    NRF_LOG_INFO("heap size: 0x%x.", xPortGetFreeHeapSize());
     // advertising_start();
     // Create a FreeRTOS task for the BLE stack.
     // The task will run advertising_start() before entering its loop.
     nrf_sdh_freertos_init(advertising_start, &erase_bonds);
-		// Do not start any interrupt that uses system functions before system initialisation.
+	// Do not start any interrupt that uses system functions before system initialisation.
     // The best solution is to start the OS before any other initalisation.
 #if NRF_LOG_ENABLED
     // Start execution.
@@ -762,15 +866,15 @@ int main(void)
     }
 #endif
 
+    nrf_platform_storage_init();
+    app_module_init();
+
     // Start FreeRTOS scheduler.
     vTaskStartScheduler();
-
-    for (;;)
-    {
+    for (;;) {
         APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);
     }
 }
-
 
 /**
  * @}

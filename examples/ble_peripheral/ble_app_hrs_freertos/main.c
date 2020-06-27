@@ -664,7 +664,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
-            NRF_LOG_DEBUG("PHY update request.");
+            NRF_LOG_INFO("PHY update request.");
             ble_gap_phys_t const phys =
             {
                 .rx_phys = BLE_GAP_PHY_AUTO,
@@ -676,7 +676,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GATTC_EVT_TIMEOUT:
             // Disconnect on GATT Client timeout event.
-            NRF_LOG_DEBUG("GATT Client Timeout.");
+            NRF_LOG_INFO("GATT Client Timeout.");
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(err_code);
@@ -684,7 +684,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GATTS_EVT_TIMEOUT:
             // Disconnect on GATT Server timeout event.
-            NRF_LOG_DEBUG("GATT Server Timeout.");
+            NRF_LOG_INFO("GATT Server Timeout.");
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(err_code);
@@ -978,4 +978,32 @@ int main(void)
     }
 }
 
+int main(void)
+{
+    bool erase_bonds;
+
+    // Initialize.
+    uart_init();
+    log_init();
+    timers_init();
+    buttons_leds_init(&erase_bonds);
+    power_management_init();
+    ble_stack_init();
+    gap_params_init();
+    gatt_init();
+    services_init();
+    advertising_init();
+    conn_params_init();
+
+    // Start execution.
+    printf("\r\nUART started.\r\n");
+    NRF_LOG_INFO("Debug logging for UART over RTT started.");
+    advertising_start();
+
+    // Enter main loop.
+    for (;;)
+    {
+        idle_state_handle();
+    }
+}
 
