@@ -42,6 +42,7 @@
 #define NRFX_TIMER_H__
 
 #include <nrfx.h>
+#include "sdk_config.h"
 #include <hal/nrf_timer.h>
 
 #ifdef __cplusplus
@@ -76,9 +77,11 @@ typedef struct
 #ifndef __NRFX_DOXYGEN__
 enum {
 #if NRFX_CHECK(NRFX_TIMER0_ENABLED)
+    #error
     NRFX_TIMER0_INST_IDX,
 #endif
 #if NRFX_CHECK(NRFX_TIMER1_ENABLED)
+    #error
     NRFX_TIMER1_INST_IDX,
 #endif
 #if NRFX_CHECK(NRFX_TIMER2_ENABLED)

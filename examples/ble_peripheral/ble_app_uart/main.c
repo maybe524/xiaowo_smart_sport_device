@@ -444,7 +444,7 @@ static void ble_stack_init(void)
     // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("ram_start: %08x", ram_start);
+    NRF_LOG_INFO("ram_start: 0x%08x", ram_start);
 
     // Register a handler for BLE events.
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);

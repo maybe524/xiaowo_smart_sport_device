@@ -5,7 +5,11 @@
 #define STORAGE_BASE_ADDR   0x3e000
 
 static TaskHandle_t m_storage_thread;
+#if defined   (__CC_ARM) /*!< ARM Compiler */ // MDK, 保持数组的起始地址是8的倍数
+__align(4)
 static struct app_storage_fmt ___storage_cache = {0};
+__align(1)
+#endif
 static bool is_need_storage_update = false;
 extern bool is_erased_done;
 
@@ -62,6 +66,7 @@ static int storage_sync(bool is_task_wait)
     is_erased_done = false;
     ret = nrf_fstorage_erase(storage_fds, storage_fds->start_addr, page_count, NULL);
     timeout_cnt = 100;
+    NRF_LOG_INFO("waiting done.");
     while (true) {
         if (is_task_wait)
             vTaskDelay(300);
@@ -73,7 +78,7 @@ static int storage_sync(bool is_task_wait)
         if (!timeout_cnt)
             break;
     }
-    NRF_LOG_INFO("storage_sync clear done.");
+    NRF_LOG_INFO("storage_sync clear done, timeout_cnt: %d", timeout_cnt);
     // 写到Flash上去
     NRF_LOG_INFO("storage_sync write, size: %d, storage: 0x%08x", sizeof(struct app_storage_fmt), storage);
     ret = nrf_fstorage_write(storage_fds, storage_fds->start_addr, storage, sizeof(struct app_storage_fmt), NULL);

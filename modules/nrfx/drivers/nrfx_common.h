@@ -69,7 +69,8 @@ extern "C" {
  * such warnings only in places where this macro is used for evaluation, not in
  * the whole analyzed code.
  */
-#define NRFX_CHECK(module_enabled)  (module_enabled)
+//#define NRFX_CHECK(module_enabled)  (module_enabled)
+#define NRFX_CHECK
 
 /**
  * @brief Macro for concatenating two tokens in macro expansion.

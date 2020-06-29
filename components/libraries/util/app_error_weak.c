@@ -58,7 +58,7 @@ __WEAK void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
     __disable_irq();
     NRF_LOG_FINAL_FLUSH();
 
-#ifndef DEBUG
+#if 1//ndef DEBUG
     NRF_LOG_ERROR("Fatal error(0x%x)", NRF_FAULT_ID_SDK_ERROR);
     {
         error_info_t * p_info = (error_info_t *)info;
