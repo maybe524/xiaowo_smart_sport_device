@@ -34,30 +34,23 @@ int vibr_test(void)
     app_pwm_enable(&PWM1);
 
     uint32_t value;
-    while (true)
-    {
-        for (uint8_t i = 0; i < 40; ++i)
-        {
+    while (true) {
+        for (uint8_t i = 0; i < 40; ++i) {
             value = (i < 20) ? (i * 5) : (100 - (i - 20) * 5);
-
             ready_flag = false;
             /* Set the duty cycle - keep trying until PWM is ready... */
             while (app_pwm_channel_duty_set(&PWM1, 0, value) == NRF_ERROR_BUSY);
-
             /* ... or wait for callback. */
             while (!ready_flag);
             APP_ERROR_CHECK(app_pwm_channel_duty_set(&PWM1, 1, value));
             nrf_delay_ms(25);
         }
     }
-
 }
 
 int app_vibr_init(void)
 {
     NRF_LOG_INFO("app_vibr_init");
-    
-    
     
     return 0;
 }
