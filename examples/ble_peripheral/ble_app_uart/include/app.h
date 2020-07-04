@@ -9,5 +9,8 @@ struct command_gen {
 
 int app_bind_init(void);
 int app_storage_init(void);
+int app_vibr_init(void);
+int app_accelerator_init(void);
+int app_hr_oximeter_init(void);
 
 int bind_mark_bind_num(uint8_t *num_array);

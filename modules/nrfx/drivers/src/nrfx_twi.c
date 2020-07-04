@@ -605,14 +605,14 @@ nrfx_err_t nrfx_twi_xfer(nrfx_twi_t           const * p_instance,
     NRFX_ASSERT( !((p_cb->handler == NULL) && (p_xfer_desc->type == NRFX_TWI_XFER_TXRX)));
     NRFX_ASSERT( !((p_cb->handler == NULL) && (p_xfer_desc->type == NRFX_TWI_XFER_TXTX)));
 
-    NRFX_LOG_INFO("Transfer type: %s.", TRANSFER_TO_STR(p_xfer_desc->type));
-    NRFX_LOG_INFO("Transfer buffers length: primary: %d, secondary: %d.",
+    NRF_LOG_INFO("Transfer type: %s.", TRANSFER_TO_STR(p_xfer_desc->type));
+    NRF_LOG_INFO("Transfer buffers length: primary: %d, secondary: %d.",
                   p_xfer_desc->primary_length,
                   p_xfer_desc->secondary_length);
-    NRFX_LOG_DEBUG("Primary buffer data:");
+    NRF_LOG_INFO("Primary buffer data:");
     NRFX_LOG_HEXDUMP_DEBUG(p_xfer_desc->p_primary_buf,
                            p_xfer_desc->primary_length * sizeof(p_xfer_desc->p_primary_buf[0]));
-    NRFX_LOG_DEBUG("Secondary buffer data:");
+    NRF_LOG_INFO("Secondary buffer data:");
     NRFX_LOG_HEXDUMP_DEBUG(p_xfer_desc->p_secondary_buf,
                            p_xfer_desc->secondary_length * sizeof(p_xfer_desc->p_secondary_buf[0]));
 

@@ -806,7 +806,17 @@
 #endif // defined(SAADC_ENABLED)
 
 //------------------------------------------------------------------------------
-// SPI
+// SPI，可能这个地方不适合添加这个宏。因为在sdk_config.h里边也定义了这个宏
+#ifndef SPI_ENABLED
+#define SPI_ENABLED 1
+#endif
+#ifndef NRFX_SPI0_ENABLED
+#define NRFX_SPI0_ENABLED 1
+#endif
+#ifndef SPIM_PRESENT
+#define SPIM_PRESENT
+#endif
+///////////////////////////////////////////
 
 #if defined(SPI_ENABLED)
 
@@ -822,7 +832,7 @@
 #undef NRFX_SPI0_ENABLED
 #define NRFX_SPI0_ENABLED   SPI0_ENABLED
 #undef NRFX_SPIM0_ENABLED
-#define NRFX_SPIM0_ENABLED  0
+#define NRFX_SPIM0_ENABLED  1
 
 #undef NRFX_SPI1_ENABLED
 #define NRFX_SPI1_ENABLED   SPI1_ENABLED
@@ -837,7 +847,7 @@
 #elif !defined(SPI_PRESENT) && defined(SPIM_PRESENT)
 
 #undef NRFX_SPI0_ENABLED
-#define NRFX_SPI0_ENABLED   0
+#define NRFX_SPI0_ENABLED   1
 #undef NRFX_SPIM0_ENABLED
 #define NRFX_SPIM0_ENABLED  SPI0_ENABLED
 
@@ -1113,6 +1123,16 @@
 #define TWIM_ONLY     (!defined(TWI_PRESENT) &&  defined(TWIM_PRESENT))
 #define TWI_AND_TWIM  ( defined(TWI_PRESENT) &&  defined(TWIM_PRESENT))
 
+// <e> TWI_ENABLED - nrf_drv_twi - TWI/TWIM peripheral driver - legacy layer
+//==========================================================
+// 可能放在这里不对
+#ifndef TWI_ENABLED
+#define TWI_ENABLED 1
+#endif
+#ifndef TWIM_PRESENT
+#define TWIM_PRESENT
+#endif
+
 #if defined(TWI_ENABLED)
 
 #undef NRFX_TWI_ENABLED
@@ -1135,12 +1155,12 @@
 #elif !defined(TWI_PRESENT) && defined(TWIM_PRESENT)
 
 #undef NRFX_TWI0_ENABLED
-#define NRFX_TWI0_ENABLED   0
+#define NRFX_TWI0_ENABLED   1
 #undef NRFX_TWIM0_ENABLED
 #define NRFX_TWIM0_ENABLED  TWI0_ENABLED
 
 #undef NRFX_TWI1_ENABLED
-#define NRFX_TWI1_ENABLED   0
+#define NRFX_TWI1_ENABLED   1
 #undef NRFX_TWIM1_ENABLED
 #define NRFX_TWIM1_ENABLED  TWI1_ENABLED
 
