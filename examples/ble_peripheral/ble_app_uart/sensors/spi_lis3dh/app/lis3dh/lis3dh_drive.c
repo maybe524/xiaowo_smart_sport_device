@@ -3,6 +3,10 @@
 #include "nrf_delay.h"
 #include "lis3dh_drive.h"
 
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
 //引脚定义
 #define SPI_SS_PIN   25  //SPI片选 nRF52832只能使用GPIO作为片选
 #define SPI_SCK_PIN  22  //SPI时钟
@@ -86,31 +90,32 @@ uint8_t LIS3DH_Init(void)
 	spi_config.frequency = NRF_DRV_SPI_FREQ_4M;
     //初始化SPI
     APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler, NULL));
-
     nrf_delay_ms(500);
 	
     /*读取WHO_AM_I判断LIS3DH是否存在 */
-	LIS3DH_ReadReg(LIS3DH_WHO_AM_I,&whoami);
-	printf(" %02X",(uint8_t)whoami);
-
-	if(whoami != 0x33)
-	{
+	LIS3DH_ReadReg(LIS3DH_WHO_AM_I, &whoami);
+	NRF_LOG_INFO("LIS3DH: %02X", (uint8_t)whoami);
+	if(whoami != 0x33) {
         while(1)
 		{
-            printf("LIS3DH is not found!\r\n");
+            NRF_LOG_INFO("LIS3DH is not found!\r\n");
             nrf_delay_ms(1000);
 		}	  
 	}
 		
 	//设置ODR：100Hz
-	if(LIS3DH_SetODR(LIS3DH_ODR_100Hz) == MEMS_SUCCESS)printf("SET_ODR_OK\r\n");
+	if(LIS3DH_SetODR(LIS3DH_ODR_100Hz) == MEMS_SUCCESS)
+        NRF_LOG_INFO("SET_ODR_OK");
 	//设置工作模式：NORMAL
-	if(LIS3DH_SetMode(LIS3DH_NORMAL) == MEMS_SUCCESS)printf("SET_MODE_OK\r\n");
+	if(LIS3DH_SetMode(LIS3DH_NORMAL) == MEMS_SUCCESS)
+        NRF_LOG_INFO("SET_MODE_OK");
     //设置分辨率：+/-2G
-	if(LIS3DH_SetFullScale(LIS3DH_FULLSCALE_2) == MEMS_SUCCESS)printf("SET_FULLSCALE_OK\r\n");
+	if(LIS3DH_SetFullScale(LIS3DH_FULLSCALE_2) == MEMS_SUCCESS)
+        NRF_LOG_INFO("SET_FULLSCALE_OK");
     
-	if(LIS3DH_SetAxis(LIS3DH_X_ENABLE | LIS3DH_Y_ENABLE | LIS3DH_Z_ENABLE) == MEMS_SUCCESS)printf("SET_AXIS_OK\r\n");
-	  
+	if(LIS3DH_SetAxis(LIS3DH_X_ENABLE | LIS3DH_Y_ENABLE | LIS3DH_Z_ENABLE) == MEMS_SUCCESS)
+        NRF_LOG_INFO("SET_AXIS_OK");
+
     return true;
 }
 /*******************************************************************************

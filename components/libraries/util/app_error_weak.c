@@ -116,4 +116,9 @@ __WEAK void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
     app_error_save_and_stop(id, pc, info);
 #endif // DEBUG
 }
+
+void HardFault_Handler(void)
+{
+    NRF_BREAKPOINT_COND;
+}
 /*lint -restore */

@@ -31,7 +31,7 @@ TASK_GEN_ENTRY_STEP(1) {
     }
 }
 
-int bind_mark_bind_num(uint8_t *num_array)
+int app_set_bind_num(uint8_t *num_array)
 {
     if (is_need_bind) {
         NRF_LOG_INFO("bind_num_ready is busy");

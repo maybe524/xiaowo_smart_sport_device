@@ -312,7 +312,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>2</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -416,6 +416,11 @@
               <FileName>app_vibr.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\app\app_vibr.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_battery.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_battery.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -4228,6 +4233,11 @@
               <FileName>app_vibr.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\app\app_vibr.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_battery.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_battery.c</FilePath>
             </File>
           </Files>
         </Group>

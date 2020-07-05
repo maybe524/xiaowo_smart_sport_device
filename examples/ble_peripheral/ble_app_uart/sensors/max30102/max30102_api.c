@@ -197,6 +197,7 @@ int max30102_init(void)
             NRF_LOG_INFO("red: %i, ir: %i, HR: %i, HRvalid: %i, SpO2: %i, SPO2Valid: %i", aun_red_buffer[i], aun_ir_buffer[i], n_heart_rate, ch_hr_valid, n_sp02, ch_spo2_valid);
         }
         maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, n_ir_buffer_length, aun_red_buffer, &n_sp02, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid); 
+        vTaskDelay(3);
     }
 }
  

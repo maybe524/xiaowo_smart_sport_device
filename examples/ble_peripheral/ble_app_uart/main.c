@@ -70,6 +70,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "app.h"
+#include "app_protocol.h"
 #include "nrf_fstorage.h"
 #include "nrf_fstorage_nvmc.h"
 
@@ -120,6 +121,7 @@ static ble_uuid_t m_adv_uuids[]          =                                      
 {
     {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}
 };
+static bool is_ble_connected = false;
 
 #if NRF_LOG_ENABLED
 static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
@@ -204,7 +206,7 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 /**@snippet [Handling the data received over BLE] */
 static void nus_data_handler(ble_nus_evt_t * p_evt)
 {
-    struct command_gen *cmd = NULL;
+    struct app_gen_command *cmd = NULL;
     uint32_t rx_length = 0, i = 0;
     
     NRF_LOG_INFO("nus_data_handler");
@@ -213,11 +215,19 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         for (i = 0; i < p_evt->params.rx_data.length; i++) {
             NRF_LOG_INFO("data[%02d]: 0x%02x", i, p_evt->params.rx_data.p_data[i]);
         }
-        cmd = (struct command_gen *)p_evt->params.rx_data.p_data;
+        cmd = (struct app_gen_command *)p_evt->params.rx_data.p_data;
         rx_length = p_evt->params.rx_data.length;
         switch (cmd->id) {
-        case CMD_H2D_ID_BIND:
-            bind_mark_bind_num(cmd->data);
+        case CMD_H2D_ID_SET_BIND:
+            app_set_bind_num(cmd->buff);
+            break;
+        case CMD_H2D_ID_SET_ACCEL_TASK:
+            struct app_h2d_set_accel_task *info = (struct app_h2d_set_accel_task *)cmd->buff;
+            NRF_LOG_INFO("info->is_need_upload: %d", info->is_need_upload);
+            if (info->is_need_upload)
+                accelerator_set_send2host();
+            else
+                accelerator_set_close_send2host();
             break;
         }
     }
@@ -367,12 +377,14 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
+            is_ble_connected = true;
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected");
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
+            is_ble_connected = false;
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
@@ -711,7 +723,8 @@ static void logger_thread(void * arg)
     while (1) {
         NRF_LOG_FLUSH();
         // NRF_LOG_INFO("%s %d: %08d", __func__, __LINE__, n++);
-        vTaskSuspend(NULL); // Suspend myself
+        //vTaskSuspend(NULL); // Suspend myself
+        vTaskDelay(3);
     }
 }
 #endif //NRF_LOG_ENABLED
@@ -827,6 +840,19 @@ void wait_for_flash_ready(nrf_fstorage_t const * p_fstorage)
 nrf_fstorage_t *get_fstorage_ins(void)
 {
     return &fstorage;
+}
+
+bool app_send_2host(uint8_t *data_array, uint16_t length)
+{
+    uint32_t err_code;
+    
+    err_code = ble_nus_data_send(&m_nus, data_array, &length, m_conn_handle);
+    return err_code;
+}
+
+bool app_get_bleconn_status(void)
+{
+    return is_ble_connected;
 }
 
 /**@brief Application main function.

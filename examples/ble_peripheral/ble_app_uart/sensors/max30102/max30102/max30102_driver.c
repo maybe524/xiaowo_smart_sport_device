@@ -148,7 +148,8 @@ bool maxim_max30102_write_reg(uint8_t uch_addr, uint8_t uch_data)
     m_xfer_done = false;
     err_code = nrf_drv_twi_tx(&m_twi, MAX30102_ADDRESS, buff, sizeof(buff), false);
     APP_ERROR_CHECK(err_code);
-    while (!m_xfer_done && timeout_cnt--);
+    while (!m_xfer_done && timeout_cnt--)
+        vTaskDelay(1);
     if (!m_xfer_done || !timeout_cnt)
         return false;
     return true;
@@ -172,7 +173,8 @@ bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data)
     m_xfer_done = false;
     err_code = nrf_drv_twi_tx(&m_twi, MAX30102_ADDRESS, &uch_addr, 1, false);
     APP_ERROR_CHECK(err_code);
-    while (!m_xfer_done && timeout_cnt--);
+    while (!m_xfer_done && timeout_cnt--)
+        vTaskDelay(1);
     if (!m_xfer_done || !timeout_cnt)
         return false;
     
@@ -181,7 +183,8 @@ bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data)
     err_code = nrf_drv_twi_rx(&m_twi, MAX30102_ADDRESS, puch_data, sizeof(uint8_t));
     APP_ERROR_CHECK(err_code);
     timeout_cnt = 100000;
-    while (!m_xfer_done && timeout_cnt--);
+    while (!m_xfer_done && timeout_cnt--)
+        vTaskDelay(1);
     if (!m_xfer_done || !timeout_cnt)
         return false;
     return true;
