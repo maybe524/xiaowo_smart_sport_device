@@ -30,4 +30,5 @@
 #include "nrf_log_default_backends.h"
 
 #define TASK_GEN_ENTRY_STEP(s)      if ((step) == (s))
-
+#define BIG_ENDING_16(v)            ((v) >> 8 | ((v) & 0xFF) << 8)
+#define CHECK_MARKS(v, m)           ((v) & (m))

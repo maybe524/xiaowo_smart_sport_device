@@ -24,10 +24,19 @@ struct app_h2d_set_task_infos {
     uint8_t     task_param;
 };
 
+struct app_d2h_power_percent {
+    uint8_t     percent;
+};
+
 #pragma pack()
+
+#define CMD_H2D_ID  0x01
+#define CMD_D2H_ID  0x02
 
 #define CMD_H2D_ID_SET_BIND         0x01
 #define CMD_H2D_ID_SET_TASK         0x03
+#define CMD_H2D_ID_GET_BAT_PERCENT         0x04
 
 
 #define CMD_D2H_ID_ACCEL_DATA       0x11
+#define CMD_D2H_ID_GET_BAT_PERCENT          CMD_H2D_ID_GET_BAT_PERCENT

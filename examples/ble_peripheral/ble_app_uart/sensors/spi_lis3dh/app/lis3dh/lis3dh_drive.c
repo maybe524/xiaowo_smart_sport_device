@@ -25,6 +25,7 @@ uint8_t   SPI_Rx_Buf[SPI_BUFSIZE];
 volatile  uint8_t   SPIReadLength, SPIWriteLength;
 static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instance completed the transfer. */
 static const nrf_drv_spi_t spi = NRF_DRV_SPI_INSTANCE(SPI_INSTANCE);  /**< SPI instance. */
+static bool is_lis3dh_spi_inited = false;
 
 //SPI事件处理函数，该函数中置位传输完成标志spi_xfer_done
 void spi_event_handler(nrf_drv_spi_evt_t const * p_event,
@@ -84,6 +85,26 @@ u8_t LIS3DH_WriteReg(uint8_t WriteAddr, uint8_t Data)
     return true;
 }
 
+uint8_t LIS3DH_SPI_Init(void)
+{
+    /* 初始化SPI0 */
+	nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG;
+    
+    if (is_lis3dh_spi_inited)
+        return -1;
+    spi_config.ss_pin   = SPI_SS_PIN;//nRF52832只能使用GPIO作为片选，所以这个单独定义了SPI CS管脚
+    spi_config.miso_pin = SPI_MISO_PIN;
+    spi_config.mosi_pin = SPI_MOSI_PIN;
+    spi_config.sck_pin  = SPI_SCK_PIN;
+	spi_config.frequency = NRF_DRV_SPI_FREQ_4M;
+    //初始化SPI
+    APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler, NULL));
+    nrf_delay_ms(500);
+    is_lis3dh_spi_inited = true;
+    
+    return 0;
+}
+
 /**********************************************************************************************
  * 描  述 : 初始化LIS3DH
  * 入  参 : 无
@@ -94,17 +115,7 @@ uint8_t LIS3DH_Init(void)
     uint8_t whoami;
     bool ret;
 	
-	/* 初始化SPI0 */
-	nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG;
-    spi_config.ss_pin   = SPI_SS_PIN;//nRF52832只能使用GPIO作为片选，所以这个单独定义了SPI CS管脚
-    spi_config.miso_pin = SPI_MISO_PIN;
-    spi_config.mosi_pin = SPI_MOSI_PIN;
-    spi_config.sck_pin  = SPI_SCK_PIN;
-	spi_config.frequency = NRF_DRV_SPI_FREQ_4M;
-    //初始化SPI
-    APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler, NULL));
-    nrf_delay_ms(500);
-	
+    LIS3DH_SPI_Init();
     /*读取WHO_AM_I判断LIS3DH是否存在 */
 	ret = LIS3DH_ReadReg(LIS3DH_WHO_AM_I, &whoami);
     if (!ret)

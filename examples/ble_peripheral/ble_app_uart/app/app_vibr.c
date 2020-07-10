@@ -14,7 +14,7 @@ APP_PWM_INSTANCE(PWM1, 1);                   // Create the instance "PWM1" using
 
 static volatile bool ready_flag;            // A flag indicating PWM status.
 static TaskHandle_t m_vibr_thread;
-static bool is_need_vibr_test = false;
+static bool is_need_vibr_test = false, is_vibr_pwm_inited = false;
 
 int vibr_set_test(void)
 {
@@ -35,20 +35,32 @@ static void pwm_ready_callback(uint32_t pwm_id)    // PWM callback function
     ready_flag = true;
 }
 
-static int vibr_test(void)
+static void vibr_pwm_init(void)
 {
     ret_code_t err_code;
     uint32_t value;
     
+    NRF_LOG_INFO("vibr_pwm_init: %d", is_vibr_pwm_inited);
+    if (is_vibr_pwm_inited)
+        return;
     /* 2-channel PWM, 200Hz, output on DK LED pins. */
     app_pwm_config_t pwm1_cfg = APP_PWM_DEFAULT_CONFIG_1CH(5000L, MOTOR_PIN);
     /* Switch the polarity of the second channel. */
     pwm1_cfg.pin_polarity[1] = APP_PWM_POLARITY_ACTIVE_HIGH;
     /* Initialize and enable PWM. */
-    err_code = app_pwm_init(&PWM1,&pwm1_cfg, pwm_ready_callback);
+    err_code = app_pwm_init(&PWM1, &pwm1_cfg, pwm_ready_callback);
     APP_ERROR_CHECK(err_code);
-    app_pwm_enable(&PWM1);
+    is_vibr_pwm_inited = true;
+}
 
+static int vibr_test(void)
+{
+    ret_code_t err_code;
+    uint32_t value;
+    
+    NRF_LOG_INFO("vibr_test start");
+    vibr_pwm_init();
+    app_pwm_enable(&PWM1);
     while (true) {
         if (!is_need_vibr_test)
             break;
@@ -59,10 +71,13 @@ static int vibr_test(void)
             while (app_pwm_channel_duty_set(&PWM1, 0, value) == NRF_ERROR_BUSY);
             /* ... or wait for callback. */
             while (!ready_flag);
-            APP_ERROR_CHECK(app_pwm_channel_duty_set(&PWM1, 1, value));
             nrf_delay_ms(25);
         }
     }
+    while (app_pwm_channel_duty_set(&PWM1, 0, 0) == NRF_ERROR_BUSY);
+    app_pwm_disable(&PWM1);
+    is_need_vibr_test = false;
+    NRF_LOG_INFO("vibr_test done");
 }
 
 static void vibr_service_thread(void *arg)

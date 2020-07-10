@@ -52,4 +52,6 @@ extern "C" {
 }
 #endif
 
+#define CONFIG_NFCT_PINS_AS_GPIOS
+
 #endif /* SYSTEM_NRF52_H */

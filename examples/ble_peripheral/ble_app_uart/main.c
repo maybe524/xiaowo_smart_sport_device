@@ -73,6 +73,8 @@
 #include "app_protocol.h"
 #include "nrf_fstorage.h"
 #include "nrf_fstorage_nvmc.h"
+#include "common.h"
+#include "nrf_delay.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -207,7 +209,7 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 static void nus_data_handler(ble_nus_evt_t * p_evt)
 {
     struct app_gen_command *cmd = NULL;
-    uint32_t rx_length = 0, i = 0;
+    uint32_t rx_length = 0, i = 0, task_mask = 0;
     
     NRF_LOG_INFO("nus_data_handler");
     if (p_evt->type == BLE_NUS_EVT_RX_DATA) {
@@ -219,7 +221,7 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         NRF_LOG_INFO("cmd->id: 0x%02x", cmd->id);
         NRF_LOG_INFO("cmd->comm_id: 0x%04x", cmd->comm_id);
         NRF_LOG_INFO("cmd->flags: 0x%02x", cmd->flags);
-        NRF_LOG_INFO("cmd->len: 0x%04x", cmd->len);
+        NRF_LOG_INFO("cmd->len: 0x%04x", BIG_ENDING_16(cmd->len));
         NRF_LOG_INFO("cmd->buff: 0x%02x", cmd->buff[0]);
         rx_length = p_evt->params.rx_data.length;
         switch (cmd->id) {
@@ -229,26 +231,31 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         case CMD_H2D_ID_SET_TASK:
             struct app_h2d_set_task_infos *info = (struct app_h2d_set_task_infos *)cmd->buff;
             // 三轴加速度
-            if (info->task_mask & 0x04) {
+            task_mask = BIG_ENDING_16(info->task_mask);
+            if (CHECK_MARKS(task_mask, 0x04)) {
                 if (info->task_need_open)
                     accelerator_set_send2host();
                 else
                     accelerator_set_close_send2host();
             }
             // 心率血氧
-            if (info->task_mask & 0x03) {
+            if (CHECK_MARKS(task_mask, 0x03)) {
                 if (info->task_need_open)
                     hr_oximeter_open_all();
                 else
                     hr_oximeter_close_all();
             }
             // 马达
-            if (info->task_mask & 0x08) {
+            if (CHECK_MARKS(task_mask, 0x08)) {
                 if (info->task_need_open)
                     vibr_set_test();
                 else
                     vibr_set_close_test();
             }
+            break;
+        // 电量
+        case CMD_H2D_ID_GET_BAT_PERCENT:
+            battery_get_power_percent();
             break;
         }
     }
@@ -883,8 +890,9 @@ int main(void)
     bool erase_bonds;
     
     // Initialize.
-    uart_init();
-		
+    // uart_init();
+	// nrf_gpio_cfg_input(10, NRF_GPIO_PIN_NOPULL);
+
     log_init();
     timers_init();
     // buttons_leds_init(&erase_bonds);
@@ -895,7 +903,7 @@ int main(void)
     services_init();
     advertising_init();
     conn_params_init();
-
+    
     // Start execution.
 	NRF_LOG_INFO("smart dev started, build time: %s %s", __DATE__, __TIME__);
     NRF_LOG_INFO("heap size: 0x%x.", xPortGetFreeHeapSize());
