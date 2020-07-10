@@ -155,7 +155,7 @@ bool maxim_max30102_write_reg(uint8_t uch_addr, uint8_t uch_data)
     return true;
 }
 
-bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data)
+bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
 /**
 * \brief        Read a MAX30102 register
 * \par          Details
@@ -244,10 +244,11 @@ bool maxim_max30102_read_fifo(uint32_t *pun_red_led, uint32_t *pun_ir_led)
   *pun_red_led=0;
   *pun_ir_led=0;
   char ach_i2c_data[6];
+  bool ret;
   
   //read and clear status register
-  maxim_max30102_read_reg(REG_INTR_STATUS_1, &uch_temp);
-  maxim_max30102_read_reg(REG_INTR_STATUS_2, &uch_temp);
+  maxim_max30102_read_reg(REG_INTR_STATUS_1, &uch_temp, 1);
+  maxim_max30102_read_reg(REG_INTR_STATUS_2, &uch_temp, 1);
   
   ach_i2c_data[0]=REG_FIFO_DATA;
 #ifdef HXW
@@ -258,6 +259,9 @@ bool maxim_max30102_read_fifo(uint32_t *pun_red_led, uint32_t *pun_ir_led)
     return false;
   }
 #endif
+  ret = maxim_max30102_read_reg(REG_FIFO_DATA, (uint8_t *)ach_i2c_data, 6);
+  if (!ret)
+      return ret;
   un_temp=(unsigned char) ach_i2c_data[0];
   un_temp<<=16;
   *pun_red_led+=un_temp;

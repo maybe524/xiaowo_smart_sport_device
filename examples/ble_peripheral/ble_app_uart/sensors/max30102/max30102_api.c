@@ -58,6 +58,14 @@
 #include "algorithm.h"
 #include "max30102_driver.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+#include "nrf.h"
+#include "app_error.h"
+#include "bsp.h"
+#include "nrf_delay.h"
+#include "app_pwm.h"
+
 #define MAX_BRIGHTNESS 255
 
 uint32_t aun_ir_buffer[500]; //IR LED sensor data
@@ -68,12 +76,56 @@ int8_t ch_spo2_valid;   //indicator to show if the SP02 calculation is valid
 int32_t n_heart_rate;   //heart rate value
 int8_t  ch_hr_valid;    //indicator to show if the heart rate calculation is valid
 uint8_t uch_dummy;
+bool is_need_stop_hr_spo2 = false;
 
 //Serial pc(SERIAL_TX, SERIAL_RX);    //initializes the serial port, TX-PA2, RX-PA3
 
 //PwmOut pwmled(PB_3);  //initializes the pwm output PB3 that connects to the LED
 //DigitalIn INT(PB_7);  //pin PB7 connects to the interrupt output pin of the MAX30102
 //DigitalOut led(PC_13); //PC13 connects to the on board user LED
+
+APP_PWM_INSTANCE(PWM0, 0);                   // Create the instance "PWM1" using TIMER1.
+
+static volatile bool max30102_pwm_ready_flag;            // A flag indicating PWM status.
+
+int max30102_set_hr_spo2(bool on)
+{
+    is_need_stop_hr_spo2 = !on;
+    return 0;
+}
+
+static void max30102_pwm_ready_callback(uint32_t pwm_id)    // PWM callback function
+{
+    max30102_pwm_ready_flag = true;
+}
+
+static int max30102_pwm_test(void)
+{
+    ret_code_t err_code;
+    uint32_t value;
+    
+    /* 2-channel PWM, 200Hz, output on DK LED pins. */
+    app_pwm_config_t pwm1_cfg = APP_PWM_DEFAULT_CONFIG_1CH(5000L, BSP_LED_0);
+    /* Switch the polarity of the second channel. */
+    pwm1_cfg.pin_polarity[1] = APP_PWM_POLARITY_ACTIVE_HIGH;
+    /* Initialize and enable PWM. */
+    err_code = app_pwm_init(&PWM0,&pwm1_cfg, max30102_pwm_ready_callback);
+    APP_ERROR_CHECK(err_code);
+    app_pwm_enable(&PWM0);
+
+    while (true) {
+        for (uint8_t i = 0; i < 40; ++i) {
+            value = (i < 20) ? (i * 5) : (100 - (i - 20) * 5);
+            max30102_pwm_ready_flag = false;
+            /* Set the duty cycle - keep trying until PWM is ready... */
+            while (app_pwm_channel_duty_set(&PWM0, 0, value) == NRF_ERROR_BUSY);
+            /* ... or wait for callback. */
+            while (!max30102_pwm_ready_flag);
+            APP_ERROR_CHECK(app_pwm_channel_duty_set(&PWM0, 1, value));
+            nrf_delay_ms(25);
+        }
+    }
+}
 
 
 // the setup routine runs once when you press reset:
@@ -83,74 +135,63 @@ int max30102_init(void)
     int i;
     int32_t n_brightness;
     float f_temp;
-    uint8_t revision_id = 0, part_id = 0;
+    uint8_t revision_id = 0, part_id = 0, gpio_value = 0;
+    bool ret;
     
     NRF_LOG_INFO("max30102_init");
     twi_init();
-    
-    maxim_max30102_read_reg(REG_REV_ID, &revision_id);
-    maxim_max30102_read_reg(REG_PART_ID, &part_id);
+    ret = maxim_max30102_read_reg(REG_REV_ID, &revision_id, 1);
+    if (!ret) {
+        NRF_LOG_INFO("max30102 read fail");
+        return ret;
+    }
+    maxim_max30102_read_reg(REG_PART_ID, &part_id, 1);
     NRF_LOG_INFO("revision_id: 0x%x, part_id: 0x%x", revision_id, part_id);
+    nrf_gpio_cfg_input(19, BUTTON_PULL);
     
     maxim_max30102_reset(); //resets the MAX30102
-    // initialize serial communication at 115200 bits per second:
-    //pc.baud(115200);
-    //pc.format(8,SerialBase::None,1);
-    //wait(1);
-    
     //read and clear status register
-    maxim_max30102_read_reg(0,&uch_dummy);
-    
-    //wait until the user presses a key
-//    while(pc.readable()==0)
-//    {
-//        pc.printf("\x1B[2J");  //clear terminal program screen
-//        pc.printf("Press any key to start conversion\n\r");
-//        wait(1);
-//    }
-//    uch_dummy=getchar();
-    
-    maxim_max30102_init();  //initializes the MAX30102
-        
-        
+    maxim_max30102_read_reg(0,&uch_dummy,1);
+    ret = maxim_max30102_init();  //initializes the MAX30102
+    NRF_LOG_INFO("maxim_max30102_init, ret: %d", ret);
     n_brightness=0;
     un_min=0x3FFFF;
     un_max=0;
-  
     n_ir_buffer_length=500; //buffer length of 100 stores 5 seconds of samples running at 100sps
     
     //read the first 500 samples, and determine the signal range
     for(i=0;i<n_ir_buffer_length;i++)
     {
         //while(INT.read()==1);   //wait until the interrupt pin asserts
-        
+        while (true) {
+            gpio_value = nrf_gpio_pin_read(19);
+            if (!gpio_value)
+                break;
+            vTaskDelay(1);
+        }
+        NRF_LOG_INFO("nrf_gpio_pin_read low");
         maxim_max30102_read_fifo((aun_red_buffer+i), (aun_ir_buffer+i));  //read from MAX30102 FIFO
-            
         if(un_min>aun_red_buffer[i])
             un_min=aun_red_buffer[i];    //update signal min
         if(un_max<aun_red_buffer[i])
             un_max=aun_red_buffer[i];    //update signal max
-        //pc.printf("red=");
-        //pc.printf("%i", aun_red_buffer[i]);
-        //pc.printf(", ir=");
-        //pc.printf("%i\n\r", aun_ir_buffer[i]);
+        NRF_LOG_INFO("red = %i, ir = %i", aun_red_buffer[i], aun_ir_buffer[i]);
     }
     un_prev_data=aun_red_buffer[i];
-    
     
     //calculate heart rate and SpO2 after first 500 samples (first 5 seconds of samples)
     maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, n_ir_buffer_length, aun_red_buffer, &n_sp02, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid); 
     
     //Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every 1 second
-    while(1)
-    {
+    while (1) {
         i=0;
         un_min=0x3FFFF;
         un_max=0;
         
+        if (is_need_stop_hr_spo2)
+            break;
         //dumping the first 100 sets of samples in the memory and shift the last 400 sets of samples to the top
-        for(i=100;i<500;i++)
-        {
+        for(i=100;i<500;i++) {
             aun_red_buffer[i-100]=aun_red_buffer[i];
             aun_ir_buffer[i-100]=aun_ir_buffer[i];
             
@@ -162,14 +203,19 @@ int max30102_init(void)
         }
         
         //take 100 sets of samples before calculating the heart rate.
-        for(i=400;i<500;i++)
-        {
+        for(i=400;i<500;i++) {
             un_prev_data=aun_red_buffer[i-1];
             //while(INT.read()==1);
+            while (true) {
+                gpio_value = nrf_gpio_pin_read(19);
+                if (!gpio_value)
+                    break;
+                vTaskDelay(1);
+            }
             maxim_max30102_read_fifo((aun_red_buffer+i), (aun_ir_buffer+i));
-        
-            if(aun_red_buffer[i]>un_prev_data)//just to determine the brightness of LED according to the deviation of adjacent two AD data
-            {
+            
+            //just to determine the brightness of LED according to the deviation of adjacent two AD data
+            if (aun_red_buffer[i]>un_prev_data) {
                 f_temp=aun_red_buffer[i]-un_prev_data;
                 f_temp/=(un_max-un_min);
                 f_temp*=MAX_BRIGHTNESS;
@@ -177,8 +223,7 @@ int max30102_init(void)
                 if(n_brightness<0)
                     n_brightness=0;
             }
-            else
-            {
+            else {
                 f_temp=un_prev_data-aun_red_buffer[i];
                 f_temp/=(un_max-un_min);
                 f_temp*=MAX_BRIGHTNESS;

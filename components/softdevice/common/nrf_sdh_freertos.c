@@ -99,7 +99,7 @@ void nrf_sdh_freertos_init(nrf_sdh_freertos_task_hook_t hook_fn, void * p_contex
                                        "BLE",
                                        NRF_BLE_FREERTOS_SDH_TASK_STACK,
                                        p_context,
-                                       2,
+                                       10,
                                        &m_softdevice_task);
     if (xReturned != pdPASS)
     {

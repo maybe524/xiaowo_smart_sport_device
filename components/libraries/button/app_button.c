@@ -298,6 +298,7 @@ uint32_t app_button_init(app_button_cfg_t const *       p_buttons,
         VERIFY_SUCCESS(err_code);
     }
 
+    NRF_LOG_INFO("app_button_init");
     /* Create polling timer. */
     return app_timer_create(&m_detection_delay_timer_id,
                             APP_TIMER_MODE_SINGLE_SHOT,

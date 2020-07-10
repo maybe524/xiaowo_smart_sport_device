@@ -7,6 +7,7 @@
 
 static TaskHandle_t m_accelerator_service_thread;
 static bool is_need_sync_2host = false;
+static uint32_t accelerator_data_id = 0;
 
 int accelerator_set_send2host(void)
 {
@@ -37,7 +38,11 @@ TASK_GEN_ENTRY_STEP(0) {
             vTaskDelay(100);
         else {
             NRF_LOG_INFO("detect one to collect accelerator");
-            LIS3DH_Init();
+            ret = (int)LIS3DH_Init();
+            if (ret) {
+                vTaskDelay(1000);
+                continue;
+            }
             step++;
         }
       }
@@ -54,11 +59,12 @@ TASK_GEN_ENTRY_STEP(1) {
             memset(&app_cmd, 0, sizeof(struct app_gen_command));
             app_cmd.id = CMD_D2H_ID_ACCEL_DATA;
             acc_p = (struct app_d2h_accelerator_data *)app_cmd.buff;
+            acc_p->i = accelerator_data_id++;
             acc_p->x = data.AXIS_X;
             acc_p->y = data.AXIS_Y;
             acc_p->z = data.AXIS_Z;
             app_send_2host((uint8_t *)&app_cmd, sizeof(struct app_gen_command));
-            NRF_LOG_INFO("X=%6d Y=%6d Z=%6d", data.AXIS_X, data.AXIS_Y, data.AXIS_Z);	
+            NRF_LOG_INFO("id: %06d, x: %6d, y: %6d, z: %6d", accelerator_data_id, data.AXIS_X, data.AXIS_Y, data.AXIS_Z);	
         }
         vTaskDelay(200);
       }

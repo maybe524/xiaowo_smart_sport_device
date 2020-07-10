@@ -40,13 +40,19 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event,
 ******************************************************************************/
 bool LIS3DH_ReadReg(uint8_t Reg, uint8_t* Data)
 {
+    unsigned int timeout_cnt = 1000;
+    
     SPI_Tx_Buf[0] = Reg | LIS3DH_READBIT;
     //SPI传输完成标志设置为false
-	  spi_xfer_done = false;
+	spi_xfer_done = false;
 	  //启动数据传输
     APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, SPI_Tx_Buf, 2, SPI_Rx_Buf, 2));
 	  //等待传输完成
-	  while(spi_xfer_done == false){}
+	while(spi_xfer_done == false && timeout_cnt--)
+        vTaskDelay(1);
+    if (!spi_xfer_done && !timeout_cnt)
+        return false;
+      
     /* Send received value back to the caller */
     *Data = SPI_Rx_Buf[1];
 
@@ -60,6 +66,8 @@ bool LIS3DH_ReadReg(uint8_t Reg, uint8_t* Data)
 ******************************************************************************/
 u8_t LIS3DH_WriteReg(uint8_t WriteAddr, uint8_t Data)
 {
+    unsigned int timeout_cnt = 1000;
+    
     SPIWriteLength = 2;//发送的数据长度
     SPIReadLength = 0; //接收的数据长度
     SPI_Tx_Buf[0] = WriteAddr;
@@ -69,17 +77,22 @@ u8_t LIS3DH_WriteReg(uint8_t WriteAddr, uint8_t Data)
 	//启动数据传输
     APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, SPI_Tx_Buf, SPIWriteLength, SPI_Rx_Buf, SPIReadLength));
 	//等待传输完成
-	while(spi_xfer_done == false){};
+	while(spi_xfer_done == false && timeout_cnt--)
+        vTaskDelay(1);
+    if (!spi_xfer_done && !timeout_cnt)
+        return false;
     return true;
 }
+
 /**********************************************************************************************
  * 描  述 : 初始化LIS3DH
  * 入  参 : 无
  * 返回值 : true-初始化成功
- *********************************************************************************************/ 
+ **************************************************/
 uint8_t LIS3DH_Init(void)
 {
     uint8_t whoami;
+    bool ret;
 	
 	/* 初始化SPI0 */
 	nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG;
@@ -93,7 +106,9 @@ uint8_t LIS3DH_Init(void)
     nrf_delay_ms(500);
 	
     /*读取WHO_AM_I判断LIS3DH是否存在 */
-	LIS3DH_ReadReg(LIS3DH_WHO_AM_I, &whoami);
+	ret = LIS3DH_ReadReg(LIS3DH_WHO_AM_I, &whoami);
+    if (!ret)
+        return 1;
 	NRF_LOG_INFO("LIS3DH: %02X", (uint8_t)whoami);
 	if(whoami != 0x33) {
         while(1)
@@ -116,7 +131,7 @@ uint8_t LIS3DH_Init(void)
 	if(LIS3DH_SetAxis(LIS3DH_X_ENABLE | LIS3DH_Y_ENABLE | LIS3DH_Z_ENABLE) == MEMS_SUCCESS)
         NRF_LOG_INFO("SET_AXIS_OK");
 
-    return true;
+    return 0;
 }
 /*******************************************************************************
 * Function Name  : LIS3DH_GetStatusAUX

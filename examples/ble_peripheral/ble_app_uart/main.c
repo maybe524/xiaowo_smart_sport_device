@@ -216,18 +216,39 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
             NRF_LOG_INFO("data[%02d]: 0x%02x", i, p_evt->params.rx_data.p_data[i]);
         }
         cmd = (struct app_gen_command *)p_evt->params.rx_data.p_data;
+        NRF_LOG_INFO("cmd->id: 0x%02x", cmd->id);
+        NRF_LOG_INFO("cmd->comm_id: 0x%04x", cmd->comm_id);
+        NRF_LOG_INFO("cmd->flags: 0x%02x", cmd->flags);
+        NRF_LOG_INFO("cmd->len: 0x%04x", cmd->len);
+        NRF_LOG_INFO("cmd->buff: 0x%02x", cmd->buff[0]);
         rx_length = p_evt->params.rx_data.length;
         switch (cmd->id) {
         case CMD_H2D_ID_SET_BIND:
             app_set_bind_num(cmd->buff);
             break;
-        case CMD_H2D_ID_SET_ACCEL_TASK:
-            struct app_h2d_set_accel_task *info = (struct app_h2d_set_accel_task *)cmd->buff;
-            NRF_LOG_INFO("info->is_need_upload: %d", info->is_need_upload);
-            if (info->is_need_upload)
-                accelerator_set_send2host();
-            else
-                accelerator_set_close_send2host();
+        case CMD_H2D_ID_SET_TASK:
+            struct app_h2d_set_task_infos *info = (struct app_h2d_set_task_infos *)cmd->buff;
+            // 三轴加速度
+            if (info->task_mask & 0x04) {
+                if (info->task_need_open)
+                    accelerator_set_send2host();
+                else
+                    accelerator_set_close_send2host();
+            }
+            // 心率血氧
+            if (info->task_mask & 0x03) {
+                if (info->task_need_open)
+                    hr_oximeter_open_all();
+                else
+                    hr_oximeter_close_all();
+            }
+            // 马达
+            if (info->task_mask & 0x08) {
+                if (info->task_need_open)
+                    vibr_set_test();
+                else
+                    vibr_set_close_test();
+            }
             break;
         }
     }
@@ -351,7 +372,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             APP_ERROR_CHECK(err_code);
             break;
         case BLE_ADV_EVT_IDLE:
-            sleep_mode_enter();
+            // sleep_mode_enter();
             break;
         default:
             break;
@@ -866,7 +887,7 @@ int main(void)
 		
     log_init();
     timers_init();
-    buttons_leds_init(&erase_bonds);
+    // buttons_leds_init(&erase_bonds);
     power_management_init();
     ble_stack_init();
     gap_params_init();

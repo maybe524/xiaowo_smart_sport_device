@@ -206,6 +206,7 @@ static int8_t channel_port_alloc(uint32_t pin, nrfx_gpiote_evt_handler_t handler
 
     for (i = start_idx; i < end_idx; i++)
     {
+        NRF_LOG_INFO("m_cb.handlers[%d]: %p", i, m_cb.handlers[i]);
         if (m_cb.handlers[i] == FORBIDDEN_HANDLER_ADDRESS)
         {
             pin_in_use_by_te_set(pin, i, handler, channel);
@@ -213,6 +214,8 @@ static int8_t channel_port_alloc(uint32_t pin, nrfx_gpiote_evt_handler_t handler
             break;
         }
     }
+    if (channel_id == NO_CHANNELS)
+        channel_id = NO_CHANNELS;
     // critical section
     return channel_id;
 }
@@ -558,7 +561,7 @@ nrfx_err_t nrfx_gpiote_in_init(nrfx_gpiote_pin_t               pin,
         }
     }
 
-    NRFX_LOG_INFO("Function: %s, error code: %s.", __func__, NRFX_LOG_ERROR_STRING_GET(err_code));
+    NRF_LOG_INFO("Function: %s, error code: %s.", __func__, NRFX_LOG_ERROR_STRING_GET(err_code));
     return err_code;
 }
 
