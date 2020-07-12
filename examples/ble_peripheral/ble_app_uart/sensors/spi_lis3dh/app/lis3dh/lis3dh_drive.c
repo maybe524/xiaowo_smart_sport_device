@@ -120,8 +120,8 @@ uint8_t LIS3DH_Init(void)
 	ret = LIS3DH_ReadReg(LIS3DH_WHO_AM_I, &whoami);
     if (!ret)
         return 1;
-	NRF_LOG_INFO("LIS3DH: %02X", (uint8_t)whoami);
-	if(whoami != 0x33) {
+	NRF_LOG_INFO("LIS3DH ID: %02X", (uint8_t)whoami);
+	if (whoami != 0x33) {
         while(1)
 		{
             NRF_LOG_INFO("LIS3DH is not found!\r\n");

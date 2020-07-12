@@ -75,6 +75,7 @@ static volatile bool m_xfer_done = false;
 
 /* Buffer for samples read from temperature sensor. */
 static uint8_t m_sample;
+static bool is_max30102_twi_inited = false;
 
 /* TWI instance. */
 static const nrf_drv_twi_t m_twi = NRF_DRV_TWI_INSTANCE(TWI_INSTANCE_ID);
@@ -96,8 +97,10 @@ void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
 {
     switch (p_event->type) {
     case NRF_DRV_TWI_EVT_DONE:
+#if 0
         if (p_event->xfer_desc.type == NRF_DRV_TWI_XFER_RX)
             data_handler(m_sample);
+#endif
         m_xfer_done = true;
         break;
     case NRF_DRV_TWI_EVT_ADDRESS_NACK:
@@ -111,7 +114,7 @@ void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
 /**
  * @brief UART initialization.
  */
-void twi_init(void)
+void max30102_twi_init(void)
 {
     ret_code_t err_code;
     const nrf_drv_twi_config_t twi_max30102_config = {
@@ -121,11 +124,14 @@ void twi_init(void)
        .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
        .clear_bus_init     = false
     };
+    if (is_max30102_twi_inited)
+        return;
 
     err_code = nrf_drv_twi_init(&m_twi, &twi_max30102_config, twi_handler, NULL);
     APP_ERROR_CHECK(err_code);
 
     nrf_drv_twi_enable(&m_twi);
+    is_max30102_twi_inited = true;
 }
 
 bool maxim_max30102_write_reg(uint8_t uch_addr, uint8_t uch_data)
@@ -180,7 +186,7 @@ bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
     
     m_xfer_done = false;
     /* Read 1 byte from the specified address - skip 3 bits dedicated for fractional part of temperature. */
-    err_code = nrf_drv_twi_rx(&m_twi, MAX30102_ADDRESS, puch_data, sizeof(uint8_t));
+    err_code = nrf_drv_twi_rx(&m_twi, MAX30102_ADDRESS, puch_data, len);
     APP_ERROR_CHECK(err_code);
     timeout_cnt = 100000;
     while (!m_xfer_done && timeout_cnt--)
@@ -201,6 +207,12 @@ bool maxim_max30102_init()
 * \retval       true on success
 */
 {
+  //	max30100_write_reg(MAX30100_MODE_CONFIG,0x0B);//使能TEMP、HR、SPO2
+  //	max30100_write_reg(MAX30100_INT_ENABLE,0xF0); //开启中断
+  //	max30100_write_reg(MAX30100_LED_CONFIG,0x33); //LED电流配置：11mA
+  //	max30100_write_reg(MAX30100_SPO2_CONFIG,0x43);
+
+  //使能A_FULL_EN 和 PPG_RDY_EN 中断
   if(!maxim_max30102_write_reg(REG_INTR_ENABLE_1,0xc0)) // INTR setting
     return false;
   if(!maxim_max30102_write_reg(REG_INTR_ENABLE_2,0x00))
@@ -217,7 +229,6 @@ bool maxim_max30102_init()
     return false;
   if(!maxim_max30102_write_reg(REG_SPO2_CONFIG,0x27))  // SPO2_ADC range = 4096nA, SPO2 sample rate (100 Hz), LED pulseWidth (400uS)
     return false;
-  
   if(!maxim_max30102_write_reg(REG_LED1_PA,0x24))   //Choose value for ~ 7mA for LED1
     return false;
   if(!maxim_max30102_write_reg(REG_LED2_PA,0x24))   // Choose value for ~ 7mA for LED2

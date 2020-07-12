@@ -131,45 +131,68 @@ static int max30102_pwm_test(void)
 // the setup routine runs once when you press reset:
 int max30102_init(void)
 { 
-    uint32_t un_min, un_max, un_prev_data;  //variables to calculate the on-board LED brightness that reflects the heartbeats
-    int i;
-    int32_t n_brightness;
-    float f_temp;
-    uint8_t revision_id = 0, part_id = 0, gpio_value = 0;
+    uint8_t revision_id = 0, part_id = 0;
     bool ret;
     
     NRF_LOG_INFO("max30102_init");
-    twi_init();
+    max30102_twi_init();
     ret = maxim_max30102_read_reg(REG_REV_ID, &revision_id, 1);
     if (!ret) {
         NRF_LOG_INFO("max30102 read fail");
-        return ret;
+        return -1;
     }
     maxim_max30102_read_reg(REG_PART_ID, &part_id, 1);
-    NRF_LOG_INFO("revision_id: 0x%x, part_id: 0x%x", revision_id, part_id);
-    nrf_gpio_cfg_input(19, BUTTON_PULL);
+    NRF_LOG_INFO("revision_id: 0x%02x, part_id: 0x%02x", revision_id, part_id);
+    if (part_id != 0x15) {
+        NRF_LOG_INFO("max30102_init fail");
+        return -2;
+    }
+    nrf_gpio_cfg_input(19, NRF_GPIO_PIN_PULLUP);
     
     maxim_max30102_reset(); //resets the MAX30102
     //read and clear status register
     maxim_max30102_read_reg(0,&uch_dummy,1);
     ret = maxim_max30102_init();  //initializes the MAX30102
     NRF_LOG_INFO("maxim_max30102_init, ret: %d", ret);
+    if (!ret)
+        return -3;
+    
+    return (int)true;
+}
+
+int max30102_collect_data(void)
+{
+    int i;
+    int32_t n_brightness;
+    uint32_t un_min, un_max, un_prev_data;  //variables to calculate the on-board LED brightness that reflects the heartbeats
+    uint32_t gpio_value = 0, timeout_cnt = 100000;
+    int8_t intr_status_1, intr_status_2;
+    float f_temp;
+
     n_brightness=0;
     un_min=0x3FFFF;
     un_max=0;
     n_ir_buffer_length=500; //buffer length of 100 stores 5 seconds of samples running at 100sps
     
+    NRF_LOG_INFO("max30102_collect_data test");
     //read the first 500 samples, and determine the signal range
-    for(i=0;i<n_ir_buffer_length;i++)
-    {
+    for(i=0;i<n_ir_buffer_length;i++) {
         //while(INT.read()==1);   //wait until the interrupt pin asserts
-        while (true) {
+        timeout_cnt = 100000;
+        while (1) {
             gpio_value = nrf_gpio_pin_read(19);
-            if (!gpio_value)
+            timeout_cnt--;
+            if (!gpio_value || !timeout_cnt)
                 break;
-            vTaskDelay(1);
+            //intr_status_1 = 0;
+            //intr_status_2 = 0;
+            //maxim_max30102_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
+            //maxim_max30102_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
+            //NRF_LOG_INFO("status_1: 0x%08x, status_2: 0x%08x", intr_status_1, intr_status_2);
         }
-        NRF_LOG_INFO("nrf_gpio_pin_read low");
+        if (!timeout_cnt)
+            NRF_LOG_INFO("waiting timeout");
+        // NRF_LOG_INFO("nrf_gpio_pin_read low");
         maxim_max30102_read_fifo((aun_red_buffer+i), (aun_ir_buffer+i));  //read from MAX30102 FIFO
         if(un_min>aun_red_buffer[i])
             un_min=aun_red_buffer[i];    //update signal min
@@ -194,7 +217,6 @@ int max30102_init(void)
         for(i=100;i<500;i++) {
             aun_red_buffer[i-100]=aun_red_buffer[i];
             aun_ir_buffer[i-100]=aun_ir_buffer[i];
-            
             //update the signal min and max
             if(un_min>aun_red_buffer[i])
             un_min=aun_red_buffer[i];
@@ -206,12 +228,15 @@ int max30102_init(void)
         for(i=400;i<500;i++) {
             un_prev_data=aun_red_buffer[i-1];
             //while(INT.read()==1);
+            timeout_cnt = 100000;
             while (true) {
                 gpio_value = nrf_gpio_pin_read(19);
-                if (!gpio_value)
+                timeout_cnt--;
+                if (!gpio_value || !timeout_cnt)
                     break;
-                vTaskDelay(1);
             }
+            if (!timeout_cnt)
+                NRF_LOG_INFO("waiting timeout");
             maxim_max30102_read_fifo((aun_red_buffer+i), (aun_ir_buffer+i));
             
             //just to determine the brightness of LED according to the deviation of adjacent two AD data
@@ -242,7 +267,6 @@ int max30102_init(void)
             NRF_LOG_INFO("red: %i, ir: %i, HR: %i, HRvalid: %i, SpO2: %i, SPO2Valid: %i", aun_red_buffer[i], aun_ir_buffer[i], n_heart_rate, ch_hr_valid, n_sp02, ch_spo2_valid);
         }
         maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, n_ir_buffer_length, aun_red_buffer, &n_sp02, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid); 
-        vTaskDelay(3);
     }
 }
  

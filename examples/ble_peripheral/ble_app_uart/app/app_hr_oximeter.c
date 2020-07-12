@@ -28,13 +28,13 @@ int hr_oximeter_open_all(void)
 
 int hr_oximeter_close_hr(void)
 {
-    is_need_open_hr = true;
+    is_need_open_hr = false;
     return 0;
 }
 
 int hr_oximeter_close_oximeter(void)
 {
-    is_need_open_oximter = true;
+    is_need_open_oximter = false;
     return 0;
 }
 
@@ -73,7 +73,8 @@ TASK_GEN_ENTRY_STEP(1) {
             vTaskDelay(3000);
             continue;
         }
-        vTaskDelay(300);
+        max30102_collect_data();
+        step++;
       }
 
 TASK_GEN_ENTRY_STEP(2) {

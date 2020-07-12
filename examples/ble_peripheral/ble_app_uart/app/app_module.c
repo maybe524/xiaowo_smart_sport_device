@@ -38,8 +38,8 @@ int app_module_init(void)
     app_vibr_init();
     app_accelerator_init();
     app_battery_init();
-    // app_hr_oximeter_init();
-    app_interrupt_init();
+    app_hr_oximeter_init();
+    // app_interrupt_init();
     NRF_LOG_INFO("app_module_init, done");
     
     return 0;
