@@ -209,7 +209,8 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 static void nus_data_handler(ble_nus_evt_t * p_evt)
 {
     struct app_gen_command *cmd = NULL;
-    uint32_t rx_length = 0, i = 0, task_mask = 0;
+    uint32_t rx_length = 0, i = 0, j = 0, task_mask = 0;
+    uint8_t buff[64] = {0};
     
     NRF_LOG_INFO("nus_data_handler");
     if (p_evt->type == BLE_NUS_EVT_RX_DATA) {
@@ -217,12 +218,20 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         for (i = 0; i < p_evt->params.rx_data.length; i++) {
             NRF_LOG_INFO("data[%02d]: 0x%02x", i, p_evt->params.rx_data.p_data[i]);
         }
+        memset(buff, 0, sizeof(buff));
         cmd = (struct app_gen_command *)p_evt->params.rx_data.p_data;
         NRF_LOG_INFO("cmd->id: 0x%02x", cmd->id);
         NRF_LOG_INFO("cmd->comm_id: 0x%04x", cmd->comm_id);
         NRF_LOG_INFO("cmd->flags: 0x%02x", cmd->flags);
         NRF_LOG_INFO("cmd->len: 0x%04x", BIG_ENDING_16(cmd->len));
         NRF_LOG_INFO("cmd->buff: 0x%02x", cmd->buff[0]);
+        // 兼容Android版本的nrf toolbox，此时下发的是ASCII码，需要转换成十六进制
+        if (cmd->id >= '0') {
+            NRF_LOG_INFO("detect androind version nrf toolbox");
+            for (i = 0; i < p_evt->params.rx_data.length; i+=2)
+                buff[j++] = ((p_evt->params.rx_data.p_data[i] - '0') << 8) | (p_evt->params.rx_data.p_data[i + 1] - '0');
+            cmd = (struct app_gen_command *)buff;
+        }
         rx_length = p_evt->params.rx_data.length;
         switch (cmd->id) {
         case CMD_H2D_ID_SET_BIND:
