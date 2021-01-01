@@ -3,7 +3,9 @@
 #include "app_protocol.h"
 #include "app_storage.h"
 #include "nrf_drv_spi.h"
-#include "lis3dh_drive.h"
+#include "lis3dh_driver.h"
+
+// #define CONFIG_TEST_ACCELERATOR
 
 static TaskHandle_t m_accelerator_service_thread;
 static bool is_need_sync_2host = false;
@@ -32,6 +34,10 @@ static void accelerator_service_thread(void *arg)
     struct app_d2h_accelerator_data *acc_p;
     struct app_gen_command app_cmd;
 
+#ifdef CONFIG_TEST_ACCELERATOR
+    is_need_sync_2host = true;
+#endif
+    
     while (true) {
 TASK_GEN_ENTRY_STEP(0) {
         if (!is_need_sync_2host)
@@ -57,12 +63,15 @@ TASK_GEN_ENTRY_STEP(1) {
         read_ret = LIS3DH_GetAccAxesRaw(&data);
         if (read_ret) {
             memset(&app_cmd, 0, sizeof(struct app_gen_command));
-            app_cmd.id = CMD_D2H_ID_ACCEL_DATA;
+            app_cmd.id = CMD_D2H_ID_GET_TASK;
+            app_cmd.flags = 0x02;
+            app_cmd.len = 8;
             acc_p = (struct app_d2h_accelerator_data *)app_cmd.buff;
-            acc_p->i = accelerator_data_id++;
-            acc_p->x = data.AXIS_X;
-            acc_p->y = data.AXIS_Y;
-            acc_p->z = data.AXIS_Z;
+            acc_p->opt_task = CHANG_TO_BIGENDING(0x04);
+            acc_p->opt_id = 0x02;
+            acc_p->x = CHANG_TO_BIGENDING(data.AXIS_X);
+            acc_p->y = CHANG_TO_BIGENDING(data.AXIS_Y);
+            acc_p->z = CHANG_TO_BIGENDING(data.AXIS_Z);
             app_send_2host((uint8_t *)&app_cmd, sizeof(struct app_gen_command));
             NRF_LOG_INFO("id: %06d, x: %6d, y: %6d, z: %6d", accelerator_data_id, data.AXIS_X, data.AXIS_Y, data.AXIS_Z);	
         }
@@ -71,7 +80,7 @@ TASK_GEN_ENTRY_STEP(1) {
 
 // 处理结束后的操作
 TASK_GEN_ENTRY_STEP(2) {
-        NRF_LOG_INFO("detect stop send accelerator adta");
+        NRF_LOG_INFO("detect stop send accelerator data");
         is_need_sync_2host = false;
         step = 0;
       }

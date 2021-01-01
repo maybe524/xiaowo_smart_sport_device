@@ -9,7 +9,7 @@
 #include "nrf_delay.h"
 #include "app_pwm.h"
 
-#define MOTOR_PIN   10
+#define MOTOR_PIN   7
 APP_PWM_INSTANCE(PWM1, 1);                   // Create the instance "PWM1" using TIMER1.
 
 static volatile bool ready_flag;            // A flag indicating PWM status.

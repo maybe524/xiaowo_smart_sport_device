@@ -269,4 +269,11 @@ int max30102_collect_data(void)
         maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, n_ir_buffer_length, aun_red_buffer, &n_sp02, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid); 
     }
 }
+
+int max30102_collect_raw_data(uint32_t *aun_red, uint32_t *aun_ir)
+{
+    maxim_max30102_read_fifo(aun_red, aun_ir);
+
+    return 0;
+}
  

@@ -764,6 +764,12 @@
 //------------------------------------------------------------------------------
 // SAADC
 
+/////////////////
+// 放在这里定义很不合适，后续在优化吧
+#ifndef SAADC_ENABLED
+#define SAADC_ENABLED 1
+#endif
+
 #if defined(SAADC_ENABLED)
 
 #undef NRFX_SAADC_ENABLED
@@ -808,13 +814,13 @@
 //------------------------------------------------------------------------------
 // SPI，可能这个地方不适合添加这个宏。因为在sdk_config.h里边也定义了这个宏
 #ifndef SPI_ENABLED
-#define SPI_ENABLED 1
+#define SPI_ENABLED 0
 #endif
 #ifndef NRFX_SPI0_ENABLED
-#define NRFX_SPI0_ENABLED 1
+#define NRFX_SPI0_ENABLED 0
 #endif
 #ifndef SPIM_PRESENT
-#define SPIM_PRESENT
+//#define SPIM_PRESENT
 #endif
 ///////////////////////////////////////////
 
@@ -1145,7 +1151,7 @@
 #undef NRFX_TWI0_ENABLED
 #define NRFX_TWI0_ENABLED   TWI0_ENABLED
 #undef NRFX_TWIM0_ENABLED
-#define NRFX_TWIM0_ENABLED  0
+#define NRFX_TWIM0_ENABLED  1
 
 #undef NRFX_TWI1_ENABLED
 #define NRFX_TWI1_ENABLED   TWI1_ENABLED

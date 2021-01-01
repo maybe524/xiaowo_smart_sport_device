@@ -67,7 +67,7 @@
 /* TWI instance ID. */
 #define TWI_INSTANCE_ID     1
 
-//MAX30102 I2C器件地址
+//MAX30102 I2C器件地址，读写地址是0xAF、0xAE，右移一位得0x57
 #define MAX30102_ADDRESS 0x57
 
 /* Indicates if operation on TWI has ended. */
@@ -124,9 +124,9 @@ void max30102_twi_init(void)
        .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
        .clear_bus_init     = false
     };
+    
     if (is_max30102_twi_inited)
         return;
-
     err_code = nrf_drv_twi_init(&m_twi, &twi_max30102_config, twi_handler, NULL);
     APP_ERROR_CHECK(err_code);
 

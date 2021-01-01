@@ -126,10 +126,12 @@ ret_code_t nrf_drv_spi_init(nrf_drv_spi_t const * const p_instance,
     }
     else if (NRF_DRV_SPI_USE_SPI)
     {
+#if 0
         result = nrfx_spi_init(&p_instance->u.spi,
                                (nrfx_spi_config_t const *)p_config,
                                handler ? spi_evt_handler : NULL,
                                (void *)inst_idx);
+#endif
     }
     return result;
 }

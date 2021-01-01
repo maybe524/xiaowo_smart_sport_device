@@ -10,8 +10,15 @@ struct app_gen_command {
 };
 
 struct app_d2h_accelerator_data {
-    uint32_t    i;
+    uint16_t    opt_task;
+    uint8_t     opt_id;
     uint16_t    x, y, z;
+};
+
+struct app_d2h_red_ir_data {
+    uint16_t    opt_task;
+    uint8_t     opt_id;
+    uint32_t    red, ir;
 };
 
 struct app_h2d_set_accel_task {
@@ -40,3 +47,8 @@ struct app_d2h_power_percent {
 
 #define CMD_D2H_ID_ACCEL_DATA       0x11
 #define CMD_D2H_ID_GET_BAT_PERCENT          CMD_H2D_ID_GET_BAT_PERCENT
+#define CMD_D2H_ID_GET_TASK         CMD_H2D_ID_SET_TASK
+
+#define CHANG_TO_BIGENDING(v)       ((v & 0xFF) << 8) | ((v >> 8) & 0xFF)
+#define CHANG_TO_BIGENDING_32(v)    (((v & 0xFF) << 24) | (((v >> 8) & 0xFF) << 16) | \
+                                    (((v >> 16) & 0xFF) << 8) | (v >> 24) & 0xFF)
