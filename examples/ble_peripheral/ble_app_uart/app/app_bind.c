@@ -9,7 +9,7 @@ static uint8_t bind_num_buff[4] = {0};
 // 处理绑定解绑的业务逻辑
 static void bind_thread(void *arg)
 {
-    int step = 0, ret = 0;
+    volatile int step = 0, ret = 0;
     
     NRF_LOG_INFO("bind_thread start");
     while (true) {
@@ -24,7 +24,7 @@ TASK_GEN_ENTRY_STEP(1) {
         NRF_LOG_INFO("new bind num: 0x%x-0x%x-0x%x-0x%x", 
             bind_num_buff[0], bind_num_buff[1], 
             bind_num_buff[2], bind_num_buff[3]);
-        // ret = storage_set(STORAGE_ID_BIND_NUM, bind_num_buff, sizeof(bind_num_buff));
+        ret = storage_set(STORAGE_ID_BIND_NUM, bind_num_buff, sizeof(bind_num_buff));
         step = 0;
         is_need_bind = false;
       }

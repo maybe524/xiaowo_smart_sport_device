@@ -129,7 +129,8 @@ static bool is_ble_connected = false;
 static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
 #endif
 
-bool is_erased_done = false;
+bool g_is_fstorage_erased_done = false;
+bool g_is_fstorage_write_done = false;
 
 /**@brief Function for assert macro callback.
  *
@@ -794,10 +795,11 @@ static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
     }
     switch (p_evt->id) {
     case NRF_FSTORAGE_EVT_WRITE_RESULT:
+        g_is_fstorage_write_done = true;
         NRF_LOG_INFO("--> Event received: wrote %d bytes at address 0x%x.", p_evt->len, p_evt->addr);
         break;
     case NRF_FSTORAGE_EVT_ERASE_RESULT:
-        is_erased_done = true;
+        g_is_fstorage_erased_done = true;
         NRF_LOG_INFO("--> Event received: erased %d page from address 0x%x.", p_evt->len, p_evt->addr);
         break;
     default:
@@ -814,8 +816,13 @@ NRF_FSTORAGE_DEF(nrf_fstorage_t fstorage) =
      * You must set these manually, even at runtime, before nrf_fstorage_init() is called.
      * The function nrf5_flash_end_addr_get() can be used to retrieve the last address on the
      * last page of flash available to write data. */
-    .start_addr = 0x7c000,
-    .end_addr   = 0x7d000,
+#if 1
+    .start_addr = 0x0004c000,
+    .end_addr   = 0x0004d000,
+#else
+    .start_addr = 0x0007c000,
+    .end_addr   = 0x0007d000,
+#endif
 };
 
 static void print_flash_info(nrf_fstorage_t * p_fstorage)

@@ -33,7 +33,7 @@ static void app_interrupt_init(void)
 int app_module_init(void)
 {
     NRF_LOG_INFO("app_module_init, start");
-    // app_storage_init();
+    app_storage_init();
     app_bind_init();
     app_vibr_init();
     app_accelerator_init();

@@ -1,38 +1,41 @@
 #include "app_error.h"
 #include "nrf_drv_spi.h"
 #include "nrf_delay.h"
-#include "lis3dh_drive.h"
-
+#include "lis3dh_driver.h"
+#include "nrf_drv_twi.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-//引脚定义
-#define SPI_SS_PIN   25  //SPI片选 nRF52832只能使用GPIO作为片选
-#define SPI_SCK_PIN  22  //SPI时钟
-#define SPI_MISO_PIN 24  //SPI主入从出
-#define SPI_MOSI_PIN 23  //SPI主出从入
+#define CONFIG_LIS3DH_USE_I2C
+#define TWI_INSTANCE_ID     0
+#define LIS3DH_ADDRESS      0x19
 
+static volatile bool m_xfer_done = false;
+static const nrf_drv_twi_t m_twi = NRF_DRV_TWI_INSTANCE(TWI_INSTANCE_ID);
+static bool is_lis3dh_driver_inited = false;
 
-#define SPI_BUFSIZE 8
-#define SPI_INSTANCE  0 /**< SPI instance index. */
-
-#define FIFO_STREAM_MODE
-#define LIS3DH_ODR_FREQ LIS3DH_ODR_100Hz
-
-uint8_t   SPI_Tx_Buf[SPI_BUFSIZE];
-uint8_t   SPI_Rx_Buf[SPI_BUFSIZE];
-volatile  uint8_t   SPIReadLength, SPIWriteLength;
-static volatile bool spi_xfer_done;  /**< Flag used to indicate that SPI instance completed the transfer. */
-static const nrf_drv_spi_t spi = NRF_DRV_SPI_INSTANCE(SPI_INSTANCE);  /**< SPI instance. */
-static bool is_lis3dh_spi_inited = false;
-
-//SPI事件处理函数，该函数中置位传输完成标志spi_xfer_done
-void spi_event_handler(nrf_drv_spi_evt_t const * p_event,
-                       void *                    p_context)
+/**
+ * @brief TWI events handler.
+ */
+void LIS3DH_Handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
 {
-    spi_xfer_done = true;
+    switch (p_event->type) {
+    case NRF_DRV_TWI_EVT_DONE:
+#if 0
+        if (p_event->xfer_desc.type == NRF_DRV_TWI_XFER_RX)
+            data_handler(m_sample);
+#endif
+        m_xfer_done = true;
+        break;
+    case NRF_DRV_TWI_EVT_ADDRESS_NACK:
+        NRF_LOG_INFO("no ack");
+        break;
+    default:
+        break;
+    }
 }
+
 /*****************************************************************************
 ** 描  述：读LIS3DSH寄存器
 ** 参  数：[in]reg：寄存器地址
@@ -41,24 +44,29 @@ void spi_event_handler(nrf_drv_spi_evt_t const * p_event,
 ******************************************************************************/
 bool LIS3DH_ReadReg(uint8_t Reg, uint8_t* Data)
 {
-    unsigned int timeout_cnt = 1000;
+    ret_code_t err_code;
+    uint32_t timeout_cnt = 100000;
     
-    SPI_Tx_Buf[0] = Reg | LIS3DH_READBIT;
-    //SPI传输完成标志设置为false
-	spi_xfer_done = false;
-	  //启动数据传输
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, SPI_Tx_Buf, 2, SPI_Rx_Buf, 2));
-	  //等待传输完成
-	while(spi_xfer_done == false && timeout_cnt--)
+    m_xfer_done = false;
+    err_code = nrf_drv_twi_tx(&m_twi, LIS3DH_ADDRESS, &Reg, 1, false);
+    APP_ERROR_CHECK(err_code);
+    while (!m_xfer_done && timeout_cnt--)
         vTaskDelay(1);
-    if (!spi_xfer_done && !timeout_cnt)
+    if (!m_xfer_done || !timeout_cnt)
         return false;
-      
-    /* Send received value back to the caller */
-    *Data = SPI_Rx_Buf[1];
-
+    
+    m_xfer_done = false;
+    /* Read 1 byte from the specified address - skip 3 bits dedicated for fractional part of temperature. */
+    err_code = nrf_drv_twi_rx(&m_twi, LIS3DH_ADDRESS, Data, 1);
+    APP_ERROR_CHECK(err_code);
+    timeout_cnt = 100000;
+    while (!m_xfer_done && timeout_cnt--)
+        vTaskDelay(1);
+    if (!m_xfer_done || !timeout_cnt)
+        return false;
     return true;
 }
+
 /*****************************************************************************
 ** 描  述：写LIS3DH寄存器
 ** 参  数：[in]WriteAddr：寄存器地址
@@ -67,40 +75,39 @@ bool LIS3DH_ReadReg(uint8_t Reg, uint8_t* Data)
 ******************************************************************************/
 u8_t LIS3DH_WriteReg(uint8_t WriteAddr, uint8_t Data)
 {
-    unsigned int timeout_cnt = 1000;
+    ret_code_t err_code;
+    /* Writing to LM75B_REG_CONF "0" set temperature sensor in NORMAL mode. */
+    uint32_t timeout_cnt = 100000;
+    uint8_t buff[2] = {WriteAddr, Data};
     
-    SPIWriteLength = 2;//发送的数据长度
-    SPIReadLength = 0; //接收的数据长度
-    SPI_Tx_Buf[0] = WriteAddr;
-    SPI_Tx_Buf[1] = (Data);
-	//SPI传输完成标志设置为false
-	spi_xfer_done = false;
-	//启动数据传输
-    APP_ERROR_CHECK(nrf_drv_spi_transfer(&spi, SPI_Tx_Buf, SPIWriteLength, SPI_Rx_Buf, SPIReadLength));
-	//等待传输完成
-	while(spi_xfer_done == false && timeout_cnt--)
+    m_xfer_done = false;
+    err_code = nrf_drv_twi_tx(&m_twi, LIS3DH_ADDRESS, buff, sizeof(buff), false);
+    APP_ERROR_CHECK(err_code);
+    while (!m_xfer_done && timeout_cnt--)
         vTaskDelay(1);
-    if (!spi_xfer_done && !timeout_cnt)
+    if (!m_xfer_done || !timeout_cnt)
         return false;
     return true;
 }
 
-uint8_t LIS3DH_SPI_Init(void)
+uint8_t LIS3DH_I2c_Init(void)
 {
-    /* 初始化SPI0 */
-	nrf_drv_spi_config_t spi_config = NRF_DRV_SPI_DEFAULT_CONFIG;
+    ret_code_t err_code;
+    const nrf_drv_twi_config_t twi_lis3dh_config = {
+       .scl                = 26,
+       .sda                = 25,
+       .frequency          = NRF_DRV_TWI_FREQ_100K,
+       .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
+       .clear_bus_init     = false
+    };
     
-    if (is_lis3dh_spi_inited)
+    if (is_lis3dh_driver_inited)
         return -1;
-    spi_config.ss_pin   = SPI_SS_PIN;//nRF52832只能使用GPIO作为片选，所以这个单独定义了SPI CS管脚
-    spi_config.miso_pin = SPI_MISO_PIN;
-    spi_config.mosi_pin = SPI_MOSI_PIN;
-    spi_config.sck_pin  = SPI_SCK_PIN;
-	spi_config.frequency = NRF_DRV_SPI_FREQ_4M;
-    //初始化SPI
-    APP_ERROR_CHECK(nrf_drv_spi_init(&spi, &spi_config, spi_event_handler, NULL));
-    nrf_delay_ms(500);
-    is_lis3dh_spi_inited = true;
+    err_code = nrf_drv_twi_init(&m_twi, &twi_lis3dh_config, LIS3DH_Handler, NULL);
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_twi_enable(&m_twi);
+    is_lis3dh_driver_inited = true;
     
     return 0;
 }
@@ -112,21 +119,26 @@ uint8_t LIS3DH_SPI_Init(void)
  **************************************************/
 uint8_t LIS3DH_Init(void)
 {
-    uint8_t whoami;
+    uint8_t whoami, cnt = 0;
     bool ret;
 	
-    LIS3DH_SPI_Init();
+retry:
+    LIS3DH_I2c_Init();
     /*读取WHO_AM_I判断LIS3DH是否存在 */
 	ret = LIS3DH_ReadReg(LIS3DH_WHO_AM_I, &whoami);
     if (!ret)
         return 1;
 	NRF_LOG_INFO("LIS3DH ID: %02X", (uint8_t)whoami);
 	if (whoami != 0x33) {
-        while(1)
-		{
-            NRF_LOG_INFO("LIS3DH is not found!\r\n");
-            nrf_delay_ms(1000);
-		}	  
+        NRF_LOG_INFO("LIS3DH is not found! whoami: 0x%x\r\n", whoami);
+        vTaskDelay(1000);
+        cnt++;
+        if (cnt > 10)
+            return 2;
+        else {
+            NRF_LOG_INFO("cnt: %d\r\n", cnt);
+            goto retry;
+        }
 	}
 		
 	//设置ODR：100Hz
