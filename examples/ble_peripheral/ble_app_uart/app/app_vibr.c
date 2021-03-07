@@ -77,6 +77,7 @@ static int vibr_test(void)
     while (app_pwm_channel_duty_set(&PWM1, 0, 0) == NRF_ERROR_BUSY);
     app_pwm_disable(&PWM1);
     is_need_vibr_test = false;
+    nrf_gpio_cfg_input(MOTOR_PIN, NRF_GPIO_PIN_INPUT_DISCONNECT);
     NRF_LOG_INFO("vibr_test done");
 }
 
