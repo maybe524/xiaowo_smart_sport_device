@@ -3,8 +3,8 @@
 #include "app_protocol.h"
 #include "nrf_drv_saadc.h"
 
-#define SAMPLES_IN_BUFFER 1
-#define GPIO_PIN_ON_OFF     6
+#define SAMPLES_IN_BUFFER   1
+#define GPIO_PIN_ON_OFF     9
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS   600                 /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION    6                   /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
@@ -68,7 +68,7 @@ static void battery_saadc_init(void)
 static void battery_saadc_sample(void)
 {
     ret_code_t errCode;
-    
+
     errCode = nrf_drv_saadc_sample();
     APP_ERROR_CHECK(errCode);
 }
@@ -81,12 +81,12 @@ static void battery_service_thread(void *arg)
     struct app_d2h_power_percent *power_percent = NULL;
     struct app_gen_command app_cmd;
     unsigned int timeout = 0;
-    
+
     NRF_LOG_INFO("battery_service_thread start");
     nrf_gpio_cfg_output(GPIO_PIN_ON_OFF);
     nrf_gpio_pin_set(GPIO_PIN_ON_OFF);
     battery_saadc_init();
-    
+
     while (true) {
 #if 1
 TASK_GEN_ENTRY_STEP(0) {
@@ -121,15 +121,15 @@ TASK_GEN_ENTRY_STEP(1) {
 
 
 int app_battery_init(void)
-{    
+{
     BaseType_t ret;
-    
+
     NRF_LOG_INFO("app_battery_init");
     ret = xTaskCreate(battery_service_thread, "BATTERY", 64, NULL, 2, &m_battery_service_thread);
     if (ret != pdPASS){
         NRF_LOG_INFO("xTaskCreate fail, ret: %d", ret);
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
-    
+
     return 0;
 }

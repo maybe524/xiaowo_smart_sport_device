@@ -10,3 +10,6 @@ int app_set_bind_num(uint8_t *num_array);
 
 bool app_send_2host(uint8_t *data_array, uint16_t length);
 bool app_get_bleconn_status(void);
+
+
+typedef int (common_event_callback_t)(int event, unsigned long data);

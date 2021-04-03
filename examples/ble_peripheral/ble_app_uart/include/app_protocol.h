@@ -21,6 +21,12 @@ struct app_d2h_red_ir_data {
     uint32_t    red, ir;
 };
 
+struct app_d2h_hr_spo2_data {
+    uint16_t    opt_task;
+    uint8_t     opt_id;
+    uint32_t    hr, spo2;
+};
+
 struct app_h2d_set_accel_task {
     uint8_t     is_need_upload;
 };
