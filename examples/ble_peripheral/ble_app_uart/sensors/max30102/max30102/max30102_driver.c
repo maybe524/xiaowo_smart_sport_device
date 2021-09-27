@@ -71,14 +71,15 @@
 #define MAX30102_ADDRESS 0x57
 
 /* Indicates if operation on TWI has ended. */
-static volatile bool m_xfer_done = false;
+volatile bool m_xfer_done = false;
 
 /* Buffer for samples read from temperature sensor. */
 static uint8_t m_sample;
 static bool is_max30102_twi_inited = false;
+bool is_max30102_i2c_busy = false;
 
 /* TWI instance. */
-static const nrf_drv_twi_t m_twi = NRF_DRV_TWI_INSTANCE(TWI_INSTANCE_ID);
+const nrf_drv_twi_t m_twi = NRF_DRV_TWI_INSTANCE(TWI_INSTANCE_ID);
 
 /**
  * @brief Function for handling data from temperature sensor.
@@ -93,8 +94,9 @@ __STATIC_INLINE void data_handler(uint8_t temp)
 /**
  * @brief TWI events handler.
  */
-void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
+void max30102_twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
 {
+
     switch (p_event->type) {
     case NRF_DRV_TWI_EVT_DONE:
 #if 0
@@ -105,6 +107,7 @@ void twi_handler(nrf_drv_twi_evt_t const * p_event, void * p_context)
         break;
     case NRF_DRV_TWI_EVT_ADDRESS_NACK:
         NRF_LOG_INFO("no ack");
+        //m_xfer_done = true;
         break;
     default:
         break;
@@ -118,20 +121,27 @@ void max30102_twi_init(void)
 {
     ret_code_t err_code;
     const nrf_drv_twi_config_t twi_max30102_config = {
+#if 1
+       .scl                = 20,    //16,
+       .sda                = 21,    //15,
+#else
        .scl                = 16,
        .sda                = 15,
-       .frequency          = NRF_DRV_TWI_FREQ_100K,
+#endif
+       .frequency          = NRF_DRV_TWI_FREQ_400K,
        .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
-       .clear_bus_init     = false
+       .clear_bus_init     = true,
     };
     
+    NRF_LOG_INFO("is_max30102_twi_inited: %d", is_max30102_twi_inited);
     if (is_max30102_twi_inited)
         return;
-    err_code = nrf_drv_twi_init(&m_twi, &twi_max30102_config, twi_handler, NULL);
+    err_code = nrf_drv_twi_init(&m_twi, &twi_max30102_config, max30102_twi_handler, NULL);
     APP_ERROR_CHECK(err_code);
 
     nrf_drv_twi_enable(&m_twi);
     is_max30102_twi_inited = true;
+    NRF_LOG_INFO("max30102_twi_init done");
 }
 
 bool maxim_max30102_write_reg(uint8_t uch_addr, uint8_t uch_data)
@@ -146,19 +156,38 @@ bool maxim_max30102_write_reg(uint8_t uch_addr, uint8_t uch_data)
 * \retval       true on success
 */
 {
+    bool ret = true;
     ret_code_t err_code;
     /* Writing to LM75B_REG_CONF "0" set temperature sensor in NORMAL mode. */
     uint32_t timeout_cnt = 100000;
     uint8_t buff[2] = {uch_addr, uch_data};
+
+#if 0
+    if (is_max30102_i2c_busy && timeout_cnt) {
+        vTaskDelay(1);
+        timeout_cnt--;
+    }
+    if (!timeout_cnt) {
+        return false;
+    }
+    is_max30102_i2c_busy = true;
+#endif
     
     m_xfer_done = false;
+    timeout_cnt = 10000;
     err_code = nrf_drv_twi_tx(&m_twi, MAX30102_ADDRESS, buff, sizeof(buff), false);
     APP_ERROR_CHECK(err_code);
     while (!m_xfer_done && timeout_cnt--)
         vTaskDelay(1);
-    if (!m_xfer_done || !timeout_cnt)
-        return false;
-    return true;
+    if (!m_xfer_done || !timeout_cnt) {
+        ret = false;
+        goto L1;
+    }
+    
+L1:
+    is_max30102_i2c_busy = false;
+    
+    return ret;
 }
 
 bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
@@ -173,16 +202,32 @@ bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
 * \retval       true on success
 */
 {
+    bool ret = true;
     ret_code_t err_code;
     uint32_t timeout_cnt = 100000;
-    
+
+#if 0
+    if (is_max30102_i2c_busy && timeout_cnt) {
+        vTaskDelay(1);
+        timeout_cnt--;
+    }
+    if (!timeout_cnt) {
+        return false;
+    }
+    is_max30102_i2c_busy = true;
+#endif
+
     m_xfer_done = false;
-    err_code = nrf_drv_twi_tx(&m_twi, MAX30102_ADDRESS, &uch_addr, 1, false);
+    timeout_cnt = 100000;
+    err_code = nrf_drv_twi_tx(&m_twi, MAX30102_ADDRESS, &uch_addr, 1, true);
     APP_ERROR_CHECK(err_code);
     while (!m_xfer_done && timeout_cnt--)
         vTaskDelay(1);
-    if (!m_xfer_done || !timeout_cnt)
-        return false;
+    if (!m_xfer_done || !timeout_cnt) {
+        NRF_LOG_INFO("%s %d", __func__, __LINE__);
+        ret = false;
+        goto L1;
+    }
     
     m_xfer_done = false;
     /* Read 1 byte from the specified address - skip 3 bits dedicated for fractional part of temperature. */
@@ -191,9 +236,16 @@ bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
     timeout_cnt = 100000;
     while (!m_xfer_done && timeout_cnt--)
         vTaskDelay(1);
-    if (!m_xfer_done || !timeout_cnt)
-        return false;
-    return true;
+    if (!m_xfer_done || !timeout_cnt) {
+        NRF_LOG_INFO("%s %d", __func__, __LINE__);
+        ret = false;
+        goto L1;
+    }
+
+L1:
+    is_max30102_i2c_busy = false;
+    
+    return ret;
 }
 
 bool maxim_max30102_init()
@@ -212,6 +264,7 @@ bool maxim_max30102_init()
   //	max30100_write_reg(MAX30100_LED_CONFIG,0x33); //LED电流配置：11mA
   //	max30100_write_reg(MAX30100_SPO2_CONFIG,0x43);
 
+#if 0
   //使能A_FULL_EN 和 PPG_RDY_EN 中断
   if(!maxim_max30102_write_reg(REG_INTR_ENABLE_1,0xc0)) // INTR setting
     return false;
@@ -235,6 +288,18 @@ bool maxim_max30102_init()
     return false;
   if(!maxim_max30102_write_reg(REG_PILOT_PA,0x7f))   // Choose value for ~ 25mA for Pilot LED
     return false;
+#else
+  int i;
+  unsigned char val = 0;
+  
+  setupDriver();
+  
+  for (i = 0; i < 0x30; i++) {
+    val = 0;
+    maxim_max30102_read_reg(i, &val, 1);
+    NRF_LOG_INFO("reg: %02d, val: %d", i, val);
+  }
+#endif
   return true;  
 }
 

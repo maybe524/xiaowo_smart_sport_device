@@ -2,6 +2,7 @@
 #include "app.h"
 #include "app_storage.h"
 
+
 #define STORAGE_BASE_ADDR   0x3e000
 
 static TaskHandle_t m_storage_thread;
@@ -138,7 +139,13 @@ int app_storage_init(void)
     BaseType_t ret;
     ret_code_t rc;
     struct app_storage_fmt *storage = &___storage_cache;
-    nrf_fstorage_t *storage_fds = get_fstorage_ins();
+    nrf_fstorage_t *storage_fds = NULL;
+
+#ifdef CONFIG_NOT_SUPPORT_STORAGE
+    NRF_LOG_INFO("storage is not support");
+    return -1;
+#else
+    storage_fds = get_fstorage_ins();
     
     NRF_LOG_INFO("app_storage_init");
     rc = nrf_fstorage_read(storage_fds, storage_fds->start_addr, storage, sizeof(struct app_storage_fmt));
@@ -153,4 +160,5 @@ int app_storage_init(void)
     s_is_storage_module_inited = true;
 
     return 0;
+#endif
 }

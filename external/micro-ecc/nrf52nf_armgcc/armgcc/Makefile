@@ -5,6 +5,8 @@ OUTPUT_DIRECTORY := _build
 SDK_ROOT := ../../../..
 PROJ_DIR := ../..
 
+$(warning huangxw1)
+
 
 # Source files common to all targets
 SRC_FILES += \

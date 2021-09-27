@@ -8,20 +8,22 @@
 // #define CONFIG_TEST_ACCELERATOR
 
 static TaskHandle_t m_accelerator_service_thread;
-static bool is_need_sync_2host = false;
+static volatile bool s_is_need_collect_accel = 1;
 static uint32_t accelerator_data_id = 0;
+bool g_is_accelerator_busy = false;
+extern bool g_is_app_init_done;
 
 int accelerator_set_send2host(void)
 {
     NRF_LOG_INFO("accelerator_set_send2host");
-    is_need_sync_2host = true;
+    s_is_need_collect_accel = true;
     return 0;
 }
 
 int accelerator_set_close_send2host(void)
 {
     NRF_LOG_INFO("accelerator_set_close_send2host");
-    is_need_sync_2host = false;
+    s_is_need_collect_accel = false;
     return 0;
 }
 
@@ -33,29 +35,41 @@ static void accelerator_service_thread(void *arg)
     status_t read_ret;
     struct app_d2h_accelerator_data *acc_p;
     struct app_gen_command app_cmd;
+    unsigned int timeout = 0;
 
 #ifdef CONFIG_TEST_ACCELERATOR
-    is_need_sync_2host = true;
+    s_is_need_collect_accel = true;
 #endif
     
     while (true) {
 TASK_GEN_ENTRY_STEP(0) {
-        if (!is_need_sync_2host)
+        if (!s_is_need_collect_accel || !g_is_app_init_done)
             vTaskDelay(100);
         else {
-            NRF_LOG_INFO("detect one to collect accelerator");
-            ret = (int)LIS3DH_Init();
-            if (ret) {
-                vTaskDelay(1000);
-                continue;
-            }
+            timeout = 10;
             step++;
         }
       }
 
-// 收集accelerator数据并且上报
 TASK_GEN_ENTRY_STEP(1) {
-        if (!is_need_sync_2host || !app_get_bleconn_status()) {
+        NRF_LOG_INFO("detect one to collect accelerator");
+        ret = (int)LIS3DH_Init();
+        if (!timeout) {
+            step = 0;
+            continue;
+        }
+        else if (ret) {
+            vTaskDelay(1000);
+            timeout--;
+            continue;
+        }
+        g_is_accelerator_busy = true;
+        step++;
+      }
+    
+    ///< 收集accelerator数据并且上报
+TASK_GEN_ENTRY_STEP(2) {
+        if (!s_is_need_collect_accel || !app_get_bleconn_status() || app_get_misc_dfu_status()) {
             step++;
             continue;
         }
@@ -78,10 +92,12 @@ TASK_GEN_ENTRY_STEP(1) {
         vTaskDelay(200);
       }
 
-// 处理结束后的操作
-TASK_GEN_ENTRY_STEP(2) {
+    ///< 处理结束后的操作
+TASK_GEN_ENTRY_STEP(3) {
         NRF_LOG_INFO("detect stop send accelerator data");
-        is_need_sync_2host = false;
+        s_is_need_collect_accel = false;
+        g_is_accelerator_busy = false;
+        timeout = 0;
         step = 0;
       }
     }
@@ -91,8 +107,9 @@ int app_accelerator_init(void)
 {
     BaseType_t ret;
     
-    NRF_LOG_INFO("int app_accelerator_init(void)");
-    ret = xTaskCreate(accelerator_service_thread, "ACCEL", 128, NULL, 2, &m_accelerator_service_thread);
+    NRF_LOG_INFO("int app_accelerator_init");
+    ///< 0 : 优先级最低
+    ret = xTaskCreate(accelerator_service_thread, "ACCEL", 128, NULL, 0, &m_accelerator_service_thread);
     if (ret != pdPASS){
         NRF_LOG_INFO("xTaskCreate fail, ret: %d", ret);
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);

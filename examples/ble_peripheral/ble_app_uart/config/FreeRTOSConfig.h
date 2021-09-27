@@ -59,8 +59,14 @@
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 1
 #define configUSE_TICKLESS_IDLE 1
 #define configUSE_TICKLESS_IDLE_SIMPLE_DEBUG                                      1 /* See into vPortSuppressTicksAndSleep source code for explanation */
+/*
+ * 写入实际的CPU内核时钟频率，也就是CPU指令执行频率，通常称为Fclk
+ * Fclk为供给CPU内核的时钟信号，我们所说的cpu主频为 XX MHz，
+ * 就是指的这个时钟信号，相应的，1/Fclk即为cpu时钟周期；
+ */
 #define configCPU_CLOCK_HZ                                                        ( SystemCoreClock )
-#define configTICK_RATE_HZ                                                        1024
+//RTOS系统节拍中断的频率。即一秒中断的次数，每次中断RTOS都会进行任务调度
+#define configTICK_RATE_HZ                                                        1000
 #define configMAX_PRIORITIES                                                      ( 3 )
 #define configMINIMAL_STACK_SIZE                                                  ( 60 )
 #define configTOTAL_HEAP_SIZE                                                     ( 8192 + 2048)

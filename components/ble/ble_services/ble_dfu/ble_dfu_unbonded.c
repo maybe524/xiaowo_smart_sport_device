@@ -47,6 +47,7 @@
 #include "ble_dfu.h"
 #include "nrf_log.h"
 #include "nrf_sdh_soc.h"
+//#include "nrf_svci_async_function.h"
 
 #if (!NRF_DFU_BLE_BUTTONLESS_SUPPORTS_BONDS)
 
@@ -56,6 +57,7 @@
 void ble_dfu_buttonless_on_sys_evt(uint32_t, void * );
 uint32_t nrf_dfu_svci_vector_table_set(void);
 uint32_t nrf_dfu_svci_vector_table_unset(void);
+
 
 /**@brief Define functions for async interface to set new advertisement name for DFU mode.  */
 NRF_SVCI_ASYNC_FUNC_DEFINE(NRF_DFU_SVCI_SET_ADV_NAME, nrf_dfu_set_adv_name, nrf_dfu_adv_name_t);

@@ -49,6 +49,8 @@ struct app_d2h_power_percent {
 #define CMD_H2D_ID_SET_BIND         0x01
 #define CMD_H2D_ID_SET_TASK         0x03
 #define CMD_H2D_ID_GET_BAT_PERCENT  0x04
+#define CMD_H2D_ID_SET_ENTER_DFU    0x05
+#define CMD_H2D_ID_GET_VERSION      0x06
 
 
 #define CMD_D2H_ID_ACCEL_DATA       0x11

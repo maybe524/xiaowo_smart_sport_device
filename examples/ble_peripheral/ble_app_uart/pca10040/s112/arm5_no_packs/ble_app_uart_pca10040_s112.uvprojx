@@ -299,8 +299,8 @@
               </OCR_RVCT8>
               <OCR_RVCT9>
                 <Type>0</Type>
-                <StartAddress>0x20002ad8</StartAddress>
-                <Size>0xb528</Size>
+                <StartAddress>0x20002ae8</StartAddress>
+                <Size>0xb518</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -312,7 +312,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>1</Optim>
+            <Optim>4</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -336,9 +336,9 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>--reduce_paths</MiscControls>
-              <Define>APP_TIMER_V2 APP_TIMER_V2_RTC1_ENABLED BOARD_PCA10040 CONFIG_GPIO_AS_PINRESET FLOAT_ABI_HARD NRF52 NRF52832_XXAA NRF52_PAN_74 NRF_SD_BLE_API_VERSION=7 S112 SOFTDEVICE_PRESENT __HEAP_SIZE=2048 __STACK_SIZE=2048</Define>
+              <Define>APP_TIMER_V2 APP_TIMER_V2_RTC1_ENABLED BOARD_PCA10040 FLOAT_ABI_HARD NRF52 NRF52832_XXAA NRF52_PAN_74 NRF_SD_BLE_API_VERSION=7 S112 SOFTDEVICE_PRESENT __HEAP_SIZE=2048 __STACK_SIZE=2048 DEBUG BLE_SETTINGS_ACCESS_ONLY  NRF_DFU_SVCI_ENABLED  NRF_DFU_TRANSPORT_BLE=1</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\config;..\..\..\..\..\..\components;..\..\..\..\..\..\components\ble\ble_advertising;..\..\..\..\..\..\components\ble\ble_dtm;..\..\..\..\..\..\components\ble\ble_link_ctx_manager;..\..\..\..\..\..\components\ble\ble_racp;..\..\..\..\..\..\components\ble\ble_services\ble_ancs_c;..\..\..\..\..\..\components\ble\ble_services\ble_ans_c;..\..\..\..\..\..\components\ble\ble_services\ble_bas;..\..\..\..\..\..\components\ble\ble_services\ble_bas_c;..\..\..\..\..\..\components\ble\ble_services\ble_cscs;..\..\..\..\..\..\components\ble\ble_services\ble_cts_c;..\..\..\..\..\..\components\ble\ble_services\ble_dfu;..\..\..\..\..\..\components\ble\ble_services\ble_dis;..\..\..\..\..\..\components\ble\ble_services\ble_gls;..\..\..\..\..\..\components\ble\ble_services\ble_hids;..\..\..\..\..\..\components\ble\ble_services\ble_hrs;..\..\..\..\..\..\components\ble\ble_services\ble_hrs_c;..\..\..\..\..\..\components\ble\ble_services\ble_hts;..\..\..\..\..\..\components\ble\ble_services\ble_ias;..\..\..\..\..\..\components\ble\ble_services\ble_ias_c;..\..\..\..\..\..\components\ble\ble_services\ble_lbs;..\..\..\..\..\..\components\ble\ble_services\ble_lbs_c;..\..\..\..\..\..\components\ble\ble_services\ble_lls;..\..\..\..\..\..\components\ble\ble_services\ble_nus;..\..\..\..\..\..\components\ble\ble_services\ble_nus_c;..\..\..\..\..\..\components\ble\ble_services\ble_rscs;..\..\..\..\..\..\components\ble\ble_services\ble_rscs_c;..\..\..\..\..\..\components\ble\ble_services\ble_tps;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\ble\nrf_ble_gatt;..\..\..\..\..\..\components\ble\nrf_ble_qwr;..\..\..\..\..\..\components\ble\peer_manager;..\..\..\..\..\..\components\boards;..\..\..\..\..\..\components\libraries\atomic;..\..\..\..\..\..\components\libraries\atomic_fifo;..\..\..\..\..\..\components\libraries\atomic_flags;..\..\..\..\..\..\components\libraries\balloc;..\..\..\..\..\..\components\libraries\bootloader\ble_dfu;..\..\..\..\..\..\components\libraries\bsp;..\..\..\..\..\..\components\libraries\button;..\..\..\..\..\..\components\libraries\cli;..\..\..\..\..\..\components\libraries\crc16;..\..\..\..\..\..\components\libraries\crc32;..\..\..\..\..\..\components\libraries\crypto;..\..\..\..\..\..\components\libraries\csense;..\..\..\..\..\..\components\libraries\csense_drv;..\..\..\..\..\..\components\libraries\delay;..\..\..\..\..\..\components\libraries\ecc;..\..\..\..\..\..\components\libraries\experimental_section_vars;..\..\..\..\..\..\components\libraries\experimental_task_manager;..\..\..\..\..\..\components\libraries\fds;..\..\..\..\..\..\components\libraries\fifo;..\..\..\..\..\..\components\libraries\fstorage;..\..\..\..\..\..\components\libraries\gfx;..\..\..\..\..\..\components\libraries\gpiote;..\..\..\..\..\..\components\libraries\hardfault;..\..\..\..\..\..\components\libraries\hci;..\..\..\..\..\..\components\libraries\led_softblink;..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\components\libraries\log\src;..\..\..\..\..\..\components\libraries\low_power_pwm;..\..\..\..\..\..\components\libraries\mem_manager;..\..\..\..\..\..\components\libraries\memobj;..\..\..\..\..\..\components\libraries\mpu;..\..\..\..\..\..\components\libraries\mutex;..\..\..\..\..\..\components\libraries\pwm;..\..\..\..\..\..\components\libraries\pwr_mgmt;..\..\..\..\..\..\components\libraries\queue;..\..\..\..\..\..\components\libraries\ringbuf;..\..\..\..\..\..\components\libraries\scheduler;..\..\..\..\..\..\components\libraries\sdcard;..\..\..\..\..\..\components\libraries\slip;..\..\..\..\..\..\components\libraries\sortlist;..\..\..\..\..\..\components\libraries\spi_mngr;..\..\..\..\..\..\components\libraries\stack_guard;..\..\..\..\..\..\components\libraries\strerror;..\..\..\..\..\..\components\libraries\svc;..\..\..\..\..\..\components\libraries\timer;..\..\..\..\..\..\components\libraries\twi_mngr;..\..\..\..\..\..\components\libraries\twi_sensor;..\..\..\..\..\..\components\libraries\uart;..\..\..\..\..\..\components\libraries\usbd;..\..\..\..\..\..\components\libraries\usbd\class\audio;..\..\..\..\..\..\components\libraries\usbd\class\cdc;..\..\..\..\..\..\components\libraries\usbd\class\cdc\acm;..\..\..\..\..\..\components\libraries\usbd\class\hid;..\..\..\..\..\..\components\libraries\usbd\class\hid\generic;..\..\..\..\..\..\components\libraries\usbd\class\hid\kbd;..\..\..\..\..\..\components\libraries\usbd\class\hid\mouse;..\..\..\..\..\..\components\libraries\usbd\class\msc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser\ac_rec_parser;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser\ble_oob_advdata_parser;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser\le_oob_rec_parser;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ac_rec;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ble_oob_advdata;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ble_pair_lib;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ble_pair_msg;..\..\..\..\..\..\components\nfc\ndef\connection_handover\common;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ep_oob_rec;..\..\..\..\..\..\components\nfc\ndef\connection_handover\hs_rec;..\..\..\..\..\..\components\nfc\ndef\connection_handover\le_oob_rec;..\..\..\..\..\..\components\nfc\ndef\generic\message;..\..\..\..\..\..\components\nfc\ndef\generic\record;..\..\..\..\..\..\components\nfc\ndef\launchapp;..\..\..\..\..\..\components\nfc\ndef\parser\message;..\..\..\..\..\..\components\nfc\ndef\parser\record;..\..\..\..\..\..\components\nfc\ndef\text;..\..\..\..\..\..\components\nfc\ndef\uri;..\..\..\..\..\..\components\nfc\platform;..\..\..\..\..\..\components\nfc\t2t_lib;..\..\..\..\..\..\components\nfc\t2t_parser;..\..\..\..\..\..\components\nfc\t4t_lib;..\..\..\..\..\..\components\nfc\t4t_parser\apdu;..\..\..\..\..\..\components\nfc\t4t_parser\cc_file;..\..\..\..\..\..\components\nfc\t4t_parser\hl_detection_procedure;..\..\..\..\..\..\components\nfc\t4t_parser\tlv;..\..\..\..\..\..\components\softdevice\common;..\..\..\..\..\..\components\softdevice\s112\headers;..\..\..\..\..\..\components\softdevice\s112\headers\nrf52;..\..\..\..\..\..\external\fprintf;..\..\..\..\..\..\external\segger_rtt;..\..\..\..\..\..\external\utf_converter;..\..\..\..\..\..\integration\nrfx;..\..\..\..\..\..\integration\nrfx\legacy;..\..\..\..\..\..\modules\nrfx;..\..\..\..\..\..\modules\nrfx\drivers\include;..\..\..\..\..\..\modules\nrfx\hal;..\..\..\..\..\..\modules\nrfx\mdk;..\config;..\..\..\..\..\..\external\fprintf;..\..\..\..\..\..\external\freertos\config;..\..\..\..\..\..\external\freertos\portable\ARM\nrf52;..\..\..\..\..\..\external\freertos\portable\CMSIS\nrf52;..\..\..\..\..\..\external\freertos\source\include;..\..\..\..\..\..\external\segger_rtt;..\..\..\..\..\..\external\utf_converter;..\..\..\include;..\..\..\..\..\..\modules\nrfx\drivers\include;..\..\..\sensors\spi_lis3dh\app\lis3dh;..\..\..\sensors\max30102;..\..\..\sensors\max30102\algorithm;..\..\..\sensors\max30102\max30102</IncludePath>
+              <IncludePath>..\..\..\config;..\..\..\..\..\..\components;..\..\..\..\..\..\components\ble\ble_advertising;..\..\..\..\..\..\components\ble\ble_dtm;..\..\..\..\..\..\components\ble\ble_link_ctx_manager;..\..\..\..\..\..\components\ble\ble_racp;..\..\..\..\..\..\components\ble\ble_services\ble_ancs_c;..\..\..\..\..\..\components\ble\ble_services\ble_ans_c;..\..\..\..\..\..\components\ble\ble_services\ble_bas;..\..\..\..\..\..\components\ble\ble_services\ble_bas_c;..\..\..\..\..\..\components\ble\ble_services\ble_cscs;..\..\..\..\..\..\components\ble\ble_services\ble_cts_c;..\..\..\..\..\..\components\ble\ble_services\ble_dfu;..\..\..\..\..\..\components\ble\ble_services\ble_dis;..\..\..\..\..\..\components\ble\ble_services\ble_gls;..\..\..\..\..\..\components\ble\ble_services\ble_hids;..\..\..\..\..\..\components\ble\ble_services\ble_hrs;..\..\..\..\..\..\components\ble\ble_services\ble_hrs_c;..\..\..\..\..\..\components\ble\ble_services\ble_hts;..\..\..\..\..\..\components\ble\ble_services\ble_ias;..\..\..\..\..\..\components\ble\ble_services\ble_ias_c;..\..\..\..\..\..\components\ble\ble_services\ble_lbs;..\..\..\..\..\..\components\ble\ble_services\ble_lbs_c;..\..\..\..\..\..\components\ble\ble_services\ble_lls;..\..\..\..\..\..\components\ble\ble_services\ble_nus;..\..\..\..\..\..\components\ble\ble_services\ble_nus_c;..\..\..\..\..\..\components\ble\ble_services\ble_rscs;..\..\..\..\..\..\components\ble\ble_services\ble_rscs_c;..\..\..\..\..\..\components\ble\ble_services\ble_tps;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\ble\nrf_ble_gatt;..\..\..\..\..\..\components\ble\nrf_ble_qwr;..\..\..\..\..\..\components\ble\peer_manager;..\..\..\..\..\..\components\boards;..\..\..\..\..\..\components\libraries\atomic;..\..\..\..\..\..\components\libraries\atomic_fifo;..\..\..\..\..\..\components\libraries\atomic_flags;..\..\..\..\..\..\components\libraries\balloc;..\..\..\..\..\..\components\libraries\bootloader\ble_dfu;..\..\..\..\..\..\components\libraries\bsp;..\..\..\..\..\..\components\libraries\button;..\..\..\..\..\..\components\libraries\cli;..\..\..\..\..\..\components\libraries\crc16;..\..\..\..\..\..\components\libraries\crc32;..\..\..\..\..\..\components\libraries\crypto;..\..\..\..\..\..\components\libraries\csense;..\..\..\..\..\..\components\libraries\csense_drv;..\..\..\..\..\..\components\libraries\delay;..\..\..\..\..\..\components\libraries\ecc;..\..\..\..\..\..\components\libraries\experimental_section_vars;..\..\..\..\..\..\components\libraries\experimental_task_manager;..\..\..\..\..\..\components\libraries\fds;..\..\..\..\..\..\components\libraries\fifo;..\..\..\..\..\..\components\libraries\fstorage;..\..\..\..\..\..\components\libraries\gfx;..\..\..\..\..\..\components\libraries\gpiote;..\..\..\..\..\..\components\libraries\hardfault;..\..\..\..\..\..\components\libraries\hci;..\..\..\..\..\..\components\libraries\led_softblink;..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\components\libraries\log\src;..\..\..\..\..\..\components\libraries\low_power_pwm;..\..\..\..\..\..\components\libraries\mem_manager;..\..\..\..\..\..\components\libraries\memobj;..\..\..\..\..\..\components\libraries\mpu;..\..\..\..\..\..\components\libraries\mutex;..\..\..\..\..\..\components\libraries\pwm;..\..\..\..\..\..\components\libraries\pwr_mgmt;..\..\..\..\..\..\components\libraries\queue;..\..\..\..\..\..\components\libraries\ringbuf;..\..\..\..\..\..\components\libraries\scheduler;..\..\..\..\..\..\components\libraries\sdcard;..\..\..\..\..\..\components\libraries\slip;..\..\..\..\..\..\components\libraries\sortlist;..\..\..\..\..\..\components\libraries\spi_mngr;..\..\..\..\..\..\components\libraries\stack_guard;..\..\..\..\..\..\components\libraries\strerror;..\..\..\..\..\..\components\libraries\svc;..\..\..\..\..\..\components\libraries\timer;..\..\..\..\..\..\components\libraries\twi_mngr;..\..\..\..\..\..\components\libraries\twi_sensor;..\..\..\..\..\..\components\libraries\uart;..\..\..\..\..\..\components\libraries\usbd;..\..\..\..\..\..\components\libraries\usbd\class\audio;..\..\..\..\..\..\components\libraries\usbd\class\cdc;..\..\..\..\..\..\components\libraries\usbd\class\cdc\acm;..\..\..\..\..\..\components\libraries\usbd\class\hid;..\..\..\..\..\..\components\libraries\usbd\class\hid\generic;..\..\..\..\..\..\components\libraries\usbd\class\hid\kbd;..\..\..\..\..\..\components\libraries\usbd\class\hid\mouse;..\..\..\..\..\..\components\libraries\usbd\class\msc;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser\ac_rec_parser;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser\ble_oob_advdata_parser;..\..\..\..\..\..\components\nfc\ndef\conn_hand_parser\le_oob_rec_parser;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ac_rec;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ble_oob_advdata;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ble_pair_lib;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ble_pair_msg;..\..\..\..\..\..\components\nfc\ndef\connection_handover\common;..\..\..\..\..\..\components\nfc\ndef\connection_handover\ep_oob_rec;..\..\..\..\..\..\components\nfc\ndef\connection_handover\hs_rec;..\..\..\..\..\..\components\nfc\ndef\connection_handover\le_oob_rec;..\..\..\..\..\..\components\nfc\ndef\generic\message;..\..\..\..\..\..\components\nfc\ndef\generic\record;..\..\..\..\..\..\components\nfc\ndef\launchapp;..\..\..\..\..\..\components\nfc\ndef\parser\message;..\..\..\..\..\..\components\nfc\ndef\parser\record;..\..\..\..\..\..\components\nfc\ndef\text;..\..\..\..\..\..\components\nfc\ndef\uri;..\..\..\..\..\..\components\nfc\platform;..\..\..\..\..\..\components\nfc\t2t_lib;..\..\..\..\..\..\components\nfc\t2t_parser;..\..\..\..\..\..\components\nfc\t4t_lib;..\..\..\..\..\..\components\nfc\t4t_parser\apdu;..\..\..\..\..\..\components\nfc\t4t_parser\cc_file;..\..\..\..\..\..\components\nfc\t4t_parser\hl_detection_procedure;..\..\..\..\..\..\components\nfc\t4t_parser\tlv;..\..\..\..\..\..\components\softdevice\common;..\..\..\..\..\..\components\softdevice\s112\headers;..\..\..\..\..\..\components\softdevice\s112\headers\nrf52;..\..\..\..\..\..\external\fprintf;..\..\..\..\..\..\external\segger_rtt;..\..\..\..\..\..\external\utf_converter;..\..\..\..\..\..\integration\nrfx;..\..\..\..\..\..\integration\nrfx\legacy;..\..\..\..\..\..\modules\nrfx;..\..\..\..\..\..\modules\nrfx\drivers\include;..\..\..\..\..\..\modules\nrfx\hal;..\..\..\..\..\..\modules\nrfx\mdk;..\config;..\..\..\..\..\..\external\fprintf;..\..\..\..\..\..\external\freertos\config;..\..\..\..\..\..\external\freertos\portable\ARM\nrf52;..\..\..\..\..\..\external\freertos\portable\CMSIS\nrf52;..\..\..\..\..\..\external\freertos\source\include;..\..\..\..\..\..\external\segger_rtt;..\..\..\..\..\..\external\utf_converter;..\..\..\include;..\..\..\..\..\..\modules\nrfx\drivers\include;..\..\..\sensors\spi_lis3dh\app\lis3dh;..\..\..\sensors\max30102;..\..\..\sensors\max30102\algorithm;..\..\..\sensors\max30102\max30102;..\..\..\sensors\led_ws2812b_2020;..\..\..\sensors\led_ws2812b_2020\i2s_ws2812b_driver;..\..\..\sensors\led_ws2812b_2020\ws2812b_driver;..\..\..\..\..\..\components\ble\ble_services;..\..\..\..\..\..\components\libraries\bootloader\dfu;..\..\..\..\..\..\components\libraries\bootloader;..\..\..\..\..\..\components\libraries\svc;..\..\..\..\..\..\components\libraries\dfu;..\..\..\..\..\..\components\libraries\ble_dfu;..\..\..\..\..\..\components\ble\ble_services\ble_dfu;..\..\..\..\..\..\components\softdevice\mbr\nrf52832\headers</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -421,6 +421,21 @@
               <FileName>app_battery.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\app\app_battery.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_watchdog.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_watchdog.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_misc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_misc.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1175,6 +1190,26 @@
                 </FileArmAds>
               </FileOption>
             </File>
+            <File>
+              <FileName>ble_dfu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\ble\ble_services\ble_dfu\ble_dfu.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_dfu_unbonded.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\ble\ble_services\ble_dfu\ble_dfu_unbonded.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_dfu_svci.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\libraries\bootloader\dfu\nrf_dfu_svci.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_dfu_bonded.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\ble\ble_services\ble_dfu\ble_dfu_bonded.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -1672,6 +1707,21 @@
               <FileName>nrfx_saadc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_saadc.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrfx_pwm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_pwm.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrfx_i2s.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_i2s.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrfx_wdt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_wdt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -3805,19 +3855,39 @@
           <GroupName>Sensors_MAX30102</GroupName>
           <Files>
             <File>
-              <FileName>max30102_api.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\sensors\max30102\max30102_api.c</FilePath>
-            </File>
-            <File>
               <FileName>algorithm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\algorithm\algorithm.c</FilePath>
             </File>
             <File>
+              <FileName>max30102_api.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\max30102_api.c</FilePath>
+            </File>
+            <File>
               <FileName>max30102_driver.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\max30102\max30102_driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>algorithm_bpm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\algorithm\algorithm_bpm.c</FilePath>
+            </File>
+            <File>
+              <FileName>max30102_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\max30102\max30102_config.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Sensors_LED</GroupName>
+          <Files>
+            <File>
+              <FileName>led_3gpio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\led_3gpio\led_3gpio.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -4244,6 +4314,21 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\app\app_battery.c</FilePath>
             </File>
+            <File>
+              <FileName>app_timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_watchdog.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_watchdog.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_misc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\app\app_misc.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -4997,6 +5082,26 @@
                 </FileArmAds>
               </FileOption>
             </File>
+            <File>
+              <FileName>ble_dfu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\ble\ble_services\ble_dfu\ble_dfu.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_dfu_unbonded.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\ble\ble_services\ble_dfu\ble_dfu_unbonded.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrf_dfu_svci.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\libraries\bootloader\dfu\nrf_dfu_svci.c</FilePath>
+            </File>
+            <File>
+              <FileName>ble_dfu_bonded.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\components\ble\ble_services\ble_dfu\ble_dfu_bonded.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -5494,6 +5599,21 @@
               <FileName>nrfx_saadc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_saadc.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrfx_pwm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_pwm.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrfx_i2s.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_i2s.c</FilePath>
+            </File>
+            <File>
+              <FileName>nrfx_wdt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\modules\nrfx\drivers\src\nrfx_wdt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -7627,19 +7747,39 @@
           <GroupName>Sensors_MAX30102</GroupName>
           <Files>
             <File>
-              <FileName>max30102_api.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\sensors\max30102\max30102_api.c</FilePath>
-            </File>
-            <File>
               <FileName>algorithm.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\algorithm\algorithm.c</FilePath>
             </File>
             <File>
+              <FileName>max30102_api.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\max30102_api.c</FilePath>
+            </File>
+            <File>
               <FileName>max30102_driver.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\max30102\max30102_driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>algorithm_bpm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\algorithm\algorithm_bpm.c</FilePath>
+            </File>
+            <File>
+              <FileName>max30102_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\max30102\max30102_config.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Sensors_LED</GroupName>
+          <Files>
+            <File>
+              <FileName>led_3gpio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\led_3gpio\led_3gpio.c</FilePath>
             </File>
           </Files>
         </Group>

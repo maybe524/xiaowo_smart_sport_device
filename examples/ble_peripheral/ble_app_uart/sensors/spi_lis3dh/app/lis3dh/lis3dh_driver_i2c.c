@@ -47,11 +47,15 @@ bool LIS3DH_ReadReg(uint8_t Reg, uint8_t* Data)
     ret_code_t err_code;
     uint32_t timeout_cnt = 100000;
     
+    if (!is_lis3dh_driver_inited) {
+        NRF_LOG_INFO("lis3dh driver is not inited");
+        return false;
+    }
     m_xfer_done = false;
     err_code = nrf_drv_twi_tx(&m_twi, LIS3DH_ADDRESS, &Reg, 1, false);
     APP_ERROR_CHECK(err_code);
     while (!m_xfer_done && timeout_cnt--)
-        vTaskDelay(1);
+        vTaskDelay(5);
     if (!m_xfer_done || !timeout_cnt)
         return false;
     
@@ -61,7 +65,7 @@ bool LIS3DH_ReadReg(uint8_t Reg, uint8_t* Data)
     APP_ERROR_CHECK(err_code);
     timeout_cnt = 100000;
     while (!m_xfer_done && timeout_cnt--)
-        vTaskDelay(1);
+        vTaskDelay(5);
     if (!m_xfer_done || !timeout_cnt)
         return false;
     return true;
@@ -79,12 +83,17 @@ u8_t LIS3DH_WriteReg(uint8_t WriteAddr, uint8_t Data)
     /* Writing to LM75B_REG_CONF "0" set temperature sensor in NORMAL mode. */
     uint32_t timeout_cnt = 100000;
     uint8_t buff[2] = {WriteAddr, Data};
-    
+
+    if (!is_lis3dh_driver_inited) {
+        NRF_LOG_INFO("lis3dh driver is not inited");
+        return false;
+    }
+
     m_xfer_done = false;
     err_code = nrf_drv_twi_tx(&m_twi, LIS3DH_ADDRESS, buff, sizeof(buff), false);
     APP_ERROR_CHECK(err_code);
     while (!m_xfer_done && timeout_cnt--)
-        vTaskDelay(1);
+        vTaskDelay(5);
     if (!m_xfer_done || !timeout_cnt)
         return false;
     return true;
@@ -98,7 +107,7 @@ uint8_t LIS3DH_I2c_Init(void)
        .sda                = 25,
        .frequency          = NRF_DRV_TWI_FREQ_100K,
        .interrupt_priority = APP_IRQ_PRIORITY_HIGH,
-       .clear_bus_init     = false
+       .clear_bus_init     = true
     };
     
     if (is_lis3dh_driver_inited)
@@ -108,6 +117,7 @@ uint8_t LIS3DH_I2c_Init(void)
 
     nrf_drv_twi_enable(&m_twi);
     is_lis3dh_driver_inited = true;
+    m_xfer_done = true;
     
     return 0;
 }

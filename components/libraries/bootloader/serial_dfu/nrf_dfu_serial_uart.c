@@ -100,6 +100,7 @@ static ret_code_t rsp_send(uint8_t const * p_data, uint32_t length)
     uint32_t slip_len;
     (void) slip_encode(m_rsp_buf, (uint8_t *)p_data, length, &slip_len);
 
+    NRF_LOG_INFO("huangxw1, rsp_send");
     return nrf_drv_uart_tx(&m_uart, m_rsp_buf, slip_len);
 }
 
@@ -189,6 +190,7 @@ static uint32_t uart_dfu_transport_init(nrf_dfu_observer_t observer)
                                             NRF_SERIAL_MAX_RESPONSE_SIZE];
     m_serial.p_low_level_transport = &uart_dfu_transport;
 
+#if 0
     nrf_drv_uart_config_t uart_config = NRF_DRV_UART_DEFAULT_CONFIG;
 
     uart_config.pseltxd   = TX_PIN_NUMBER;
@@ -211,6 +213,7 @@ static uint32_t uart_dfu_transport_init(nrf_dfu_observer_t observer)
     {
         NRF_LOG_ERROR("Failed initializing rx");
     }
+#endif
 
     NRF_LOG_DEBUG("serial_dfu_transport_init() completed");
 

@@ -111,6 +111,13 @@ void vPortSetupTimerInterrupt( void )
 
 /*-----------------------------------------------------------*/
 
+static unsigned int sSysTickCnt = 0;
+
+unsigned int xPortGetSysTick(void)
+{
+    return sSysTickCnt;
+}
+
 void xPortSysTickHandler( void )
 {
 #if configUSE_TICKLESS_IDLE == 1
@@ -123,6 +130,8 @@ void xPortSysTickHandler( void )
     uint32_t systick_counter = nrf_rtc_counter_get(portNRF_RTC_REG);
     nrf_rtc_event_clear(portNRF_RTC_REG, NRF_RTC_EVENT_TICK);
 
+    sSysTickCnt++;
+    
     if (configUSE_DISABLE_TICK_AUTO_CORRECTION_DEBUG == 0)
     {
         /* check FreeRTOSConfig.h file for more details on configUSE_DISABLE_TICK_AUTO_CORRECTION_DEBUG */

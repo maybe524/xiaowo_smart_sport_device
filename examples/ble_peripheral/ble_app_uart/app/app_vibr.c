@@ -9,26 +9,43 @@
 #include "nrf_delay.h"
 #include "app_pwm.h"
 
-#define MOTOR_PIN   7
+#define MOTOR_PIN   3
 APP_PWM_INSTANCE(PWM1, 1);                   // Create the instance "PWM1" using TIMER1.
 
 static volatile bool ready_flag;            // A flag indicating PWM status.
 static TaskHandle_t m_vibr_thread;
-static bool is_need_vibr_test = false, is_vibr_pwm_inited = false;
+static bool is_need_vibr_test = 0, is_vibr_pwm_inited = false;
+static bool is_need_show_power_by_vbir_led = 0;
+extern bool g_is_app_init_done;
 
 int vibr_set_test(void)
 {
-    NRF_LOG_INFO("vibr_set_test");
+    MSG_DEBUG("vibr_set_test");
     is_need_vibr_test = true;
     return 0;
 }
 
 int vibr_set_close_test(void)
 {
-    NRF_LOG_INFO("vibr_set_close_test");
+    MSG_DEBUG("vibr_set_close_test");
     is_need_vibr_test = false;
     return 0;
 }
+
+int vibr_set_show_power_led(void)
+{
+    MSG_DEBUG("vibr_set_show_power_led");
+    is_need_show_power_by_vbir_led = true;
+    return 0;
+}
+
+int vibr_set_off_power_led(void)
+{
+    MSG_DEBUG("vibr_set_off_power_led");
+    is_need_show_power_by_vbir_led = false;
+    return 0;
+}
+
 
 static void pwm_ready_callback(uint32_t pwm_id)    // PWM callback function
 {
@@ -44,7 +61,7 @@ static void vibr_pwm_init(void)
     if (is_vibr_pwm_inited)
         return;
     /* 2-channel PWM, 200Hz, output on DK LED pins. */
-    app_pwm_config_t pwm1_cfg = APP_PWM_DEFAULT_CONFIG_1CH(5000L, MOTOR_PIN);
+    app_pwm_config_t pwm1_cfg = APP_PWM_DEFAULT_CONFIG_1CH(5000L, MOTOR_PIN);   // 5000L
     /* Switch the polarity of the second channel. */
     pwm1_cfg.pin_polarity[1] = APP_PWM_POLARITY_ACTIVE_HIGH;
     /* Initialize and enable PWM. */
@@ -57,13 +74,16 @@ static int vibr_test(void)
 {
     ret_code_t err_code;
     uint32_t value;
+    uint32_t time_turnon_led_gap = 0, time_exit_gap = 0;
     
     NRF_LOG_INFO("vibr_test start");
     vibr_pwm_init();
     app_pwm_enable(&PWM1);
     while (true) {
-        if (!is_need_vibr_test)
+#if 1
+        if (!is_need_vibr_test || !app_get_bleconn_status() || time_exit_gap >= 400)
             break;
+#endif
         for (uint8_t i = 0; i < 40; ++i) {
             value = (i < 20) ? (i * 5) : (100 - (i - 20) * 5);
             ready_flag = false;
@@ -72,6 +92,7 @@ static int vibr_test(void)
             /* ... or wait for callback. */
             while (!ready_flag);
             nrf_delay_ms(25);
+            time_exit_gap++;
         }
     }
     while (app_pwm_channel_duty_set(&PWM1, 0, 0) == NRF_ERROR_BUSY);
@@ -79,6 +100,151 @@ static int vibr_test(void)
     is_need_vibr_test = false;
     nrf_gpio_cfg_input(MOTOR_PIN, NRF_GPIO_PIN_INPUT_DISCONNECT);
     NRF_LOG_INFO("vibr_test done");
+    return 0;
+}
+
+///< 接口仅适合在任务里边调用，因为会调用任务切换函数
+static int vibr_run_mix(void)
+{
+    ret_code_t err_code;
+    uint32_t value;
+    int ret = 0;
+    uint32_t power_percent = 0;
+    int is_pwm_inited = 0;
+    uint8_t i = 0;
+    uint32_t time_turnon_led_gap = 40, time_exit_pwm_gap = 0, time_exit_show_gap = 0;
+    char led_status = 1;
+    bool is_vibr_run_mix_inited = false;
+    unsigned int pwm_timeout = 0;
+
+    NRF_LOG_INFO("vibr_run_mix start");
+
+    while (true) {
+retry:
+        NRF_LOG_INFO("vibr_run_mix power_percent: %02d, time: %04d, charging: %d, %d, %d", \
+            power_percent, time_exit_show_gap, battery_get_power_charging(),\
+            is_need_show_power_by_vbir_led, is_need_vibr_test);
+        if (!is_need_show_power_by_vbir_led && !is_need_vibr_test) {
+            NRF_LOG_INFO("timeout: %d, show_power: %d, vibr_test: %d", \
+                time_exit_show_gap, \
+                is_need_show_power_by_vbir_led, \
+                is_need_vibr_test);
+            break;
+        }
+
+        if (is_need_show_power_by_vbir_led) {
+            ret = battery_get_power_percent(&power_percent);
+            if (ret && time_exit_show_gap < 20) {
+                goto next1;
+            }
+            else if (!ret && time_exit_show_gap >= 10) {
+                is_need_show_power_by_vbir_led = false;
+                goto next1;
+            }
+
+            if (power_percent < 5) {
+                if (!is_vibr_run_mix_inited) {
+                    vibr_pwm_init();
+                    app_pwm_enable(&PWM1);
+                    is_vibr_run_mix_inited = true;
+                }
+                for (i = 0; i < 40; ++i) {
+                    value = (i < 20) ? (i * 5) : (100 - (i - 20) * 5);
+                    ready_flag = false;
+                    /* Set the duty cycle - keep trying until PWM is ready... */
+                    pwm_timeout = 1000;
+                    while (true) {
+                        if (!pwm_timeout || app_pwm_channel_duty_set(&PWM1, 0, value) != NRF_ERROR_BUSY)
+                            break;
+                        pwm_timeout--;
+                        vTaskDelay(25);
+                    }
+                    /* ... or wait for callback. */
+                    pwm_timeout = 1000;
+                    while (true) {
+                        if (ready_flag || !pwm_timeout)
+                            break;
+                        pwm_timeout--;
+                        vTaskDelay(25);
+                    }
+                    vTaskDelay(25);
+                    led_3gpio_set_led(1, 0, 0);
+                }
+                while (true) {
+                    if (app_pwm_channel_duty_set(&PWM1, 0, 0) != NRF_ERROR_BUSY)
+                        break;
+                    vTaskDelay(25);
+                }
+            }
+            else if (5 < power_percent && power_percent <= 20)
+                led_3gpio_set_led(1, 0, 0);
+            else if (20 < power_percent)
+                led_3gpio_set_led(0, 1, 0);
+         }
+
+next1:
+        if (is_need_vibr_test) {
+#if 1
+            if (!is_need_vibr_test || !app_get_bleconn_status() || time_exit_show_gap >= 10) {
+                is_need_vibr_test = false;
+                goto next2;
+            }
+#endif
+            if (!is_vibr_run_mix_inited) {
+                vibr_pwm_init();
+                app_pwm_enable(&PWM1);
+                is_vibr_run_mix_inited = true;
+            }
+            for (uint8_t i = 0; i < 40; ++i) {
+                value = (i < 20) ? (i * 5) : (100 - (i - 20) * 5);
+                ready_flag = false;
+                /* Set the duty cycle - keep trying until PWM is ready... */
+                pwm_timeout = 1000;
+                while (true) {
+                    if (!pwm_timeout || app_pwm_channel_duty_set(&PWM1, 0, value) != NRF_ERROR_BUSY)
+                        break;
+                    pwm_timeout--;
+                    vTaskDelay(25);
+                }
+                /* ... or wait for callback. */
+                pwm_timeout = 1000;
+                while (true) {
+                    if (ready_flag || !pwm_timeout)
+                        break;
+                    pwm_timeout--;
+                    vTaskDelay(25);
+                }
+                vTaskDelay(25);
+            }
+            
+            pwm_timeout = 1000;
+            while (true) {
+                if (!pwm_timeout || app_pwm_channel_duty_set(&PWM1, 0, 0) != NRF_ERROR_BUSY)
+                    break;
+                pwm_timeout--;
+                vTaskDelay(25);
+            }
+        }
+
+next2:
+        vTaskDelay(300);
+        time_exit_show_gap++;
+        time_turnon_led_gap++;
+    }
+
+    ///< 关闭三色灯
+    led_3gpio_set_led(0, 0, 0);
+    ///< 关闭标志位
+    is_need_show_power_by_vbir_led = false;
+    is_need_vibr_test = false;
+
+    if (is_vibr_run_mix_inited) {
+        app_pwm_disable(&PWM1);
+        nrf_gpio_cfg_input(MOTOR_PIN, NRF_GPIO_PIN_INPUT_DISCONNECT);
+    }
+    
+    NRF_LOG_INFO("vibr_run_mix done");
+    return 0;
 }
 
 static void vibr_service_thread(void *arg)
@@ -88,14 +254,14 @@ static void vibr_service_thread(void *arg)
     NRF_LOG_INFO("vibr_service_thread start");
     while (true) {
 TASK_GEN_ENTRY_STEP(0) {
-        if (!is_need_vibr_test)
-            vTaskDelay(300);
-        else
+        if (g_is_app_init_done && (is_need_vibr_test || is_need_show_power_by_vbir_led))
             step++;
+        else
+            vTaskDelay(300);
       }
 
 TASK_GEN_ENTRY_STEP(1) {
-        vibr_test();
+        vibr_run_mix();
         step = 0;
       }
     }

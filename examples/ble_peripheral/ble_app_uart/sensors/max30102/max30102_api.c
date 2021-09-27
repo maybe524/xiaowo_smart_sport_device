@@ -79,8 +79,9 @@ int8_t ch_spo2_valid;   //indicator to show if the SP02 calculation is valid
 int32_t n_heart_rate;   //heart rate value
 int8_t  ch_hr_valid;    //indicator to show if the heart rate calculation is valid
 uint8_t uch_dummy;
-bool is_need_stop_hr_spo2 = false;
+bool g_is_need_stop_hr_spo2 = false;
 static common_event_callback_t *p_user_callback = NULL;
+static unsigned int s_max30102_timestamp = 0;
 
 //Serial pc(SERIAL_TX, SERIAL_RX);    //initializes the serial port, TX-PA2, RX-PA3
 
@@ -94,7 +95,7 @@ static volatile bool max30102_pwm_ready_flag;            // A flag indicating PW
 
 int max30102_set_hr_spo2(bool on)
 {
-    is_need_stop_hr_spo2 = !on;
+    g_is_need_stop_hr_spo2 = !on;
     return 0;
 }
 
@@ -152,7 +153,7 @@ int max30102_init(void)
         return -2;
     }
     // 中断是低有效，所有要上拉
-    nrf_gpio_cfg_input(MAX30102_INT_PIN, NRF_GPIO_PIN_PULLUP);
+    //nrf_gpio_cfg_input(MAX30102_INT_PIN, NRF_GPIO_PIN_PULLUP);
     // nrf_gpio_cfg_input(MAX30102_LED_PIN, NRF_GPIO_PIN_PULLUP);
 
     maxim_max30102_reset(); //resets the MAX30102
@@ -169,7 +170,7 @@ int max30102_init(void)
 int max30102_exit(void)
 {
     NRF_LOG_INFO("max30102_module_exit");
-    nrf_gpio_cfg_default(MAX30102_INT_PIN);
+    // nrf_gpio_cfg_default(MAX30102_INT_PIN);
     maxim_max30102_reset();
 
     return 0;
@@ -182,9 +183,11 @@ int max30102_user_event_callback_init(common_event_callback_t p_call_back)
     return 0;
 }
 
+static unsigned int max30102_collect_data_bak = 0;
+
 int max30102_collect_data(void)
 {
-    int i;
+    int i, ret;
     int32_t n_brightness;
     uint32_t un_min, un_max, un_prev_data;  //variables to calculate the on-board LED brightness that reflects the heartbeats
     uint32_t gpio_value = 0, timeout_cnt = 100000;
@@ -194,6 +197,7 @@ int max30102_collect_data(void)
         unsigned int hr, spo2;
     };
     struct event_hr_spo2 user_event_hr_spo2 = {0};
+    uint32_t ir = 0, red = 0;
 
     n_brightness = 0;
     un_min = 0x3FFFF;
@@ -209,9 +213,11 @@ int max30102_collect_data(void)
     NRF_LOG_INFO("enable_1: 0x%x, enable_2: 0x%x", intr_status_1, intr_status_2);
 
     //read the first 500 samples, and determine the signal range
+#if 1
     for (i = 0; i < n_ir_buffer_length; i++) {
         //while(INT.read()==1);   //wait until the interrupt pin asserts
         timeout_cnt = 100000;
+#if 0
         while (1) {
             gpio_value = nrf_gpio_pin_read(MAX30102_INT_PIN);
             timeout_cnt--;
@@ -224,15 +230,16 @@ int max30102_collect_data(void)
                 break;
             // vTaskDelay(1);
         }
+#endif
         if (!timeout_cnt)
             NRF_LOG_INFO("waiting timeout");
         // NRF_LOG_INFO("nrf_gpio_pin_read low");
         maxim_max30102_read_fifo((aun_red_buffer + i), (aun_ir_buffer + i));  //read from MAX30102 FIFO
-        if (un_min>aun_red_buffer[i]) {
-            un_min=aun_red_buffer[i];    //update signal min
+        if (un_min > aun_red_buffer[i]) {
+            un_min = aun_red_buffer[i];    //update signal min
         }
-        if (un_max<aun_red_buffer[i]) {
-            un_max=aun_red_buffer[i];    //update signal max
+        if (un_max < aun_red_buffer[i]) {
+            un_max = aun_red_buffer[i];    //update signal max
         }
         NRF_LOG_INFO("red = %i, ir = %i", aun_red_buffer[i], aun_ir_buffer[i]);
     }
@@ -240,17 +247,53 @@ int max30102_collect_data(void)
 
     //calculate heart rate and SpO2 after first 500 samples (first 5 seconds of samples)
     maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, n_ir_buffer_length, aun_red_buffer, &n_sp02, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-
+#endif
     //Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every 1 second
+    s_max30102_timestamp = app_get_time_stamp();
     while (1) {
         i = 0;
         un_min = 0x3FFFF;
         un_max = 0;
 
-        if (is_need_stop_hr_spo2) {
-            NRF_LOG_INFO("max30102_collect_data stop collect data\n");
+        if (!hr_oximeter_check_condiction()) {
+            NRF_LOG_INFO("max30102_collect_data stop collect data, %d", \
+                hr_oximeter_check_condiction());
             break;
         }
+        
+        timeout_cnt = 100000;
+#if 0
+        while (true) {
+            gpio_value = nrf_gpio_pin_read(MAX30102_INT_PIN);
+            timeout_cnt--;
+            if (!gpio_value || !timeout_cnt)
+                break;
+            // intr_status_1 = 0;
+            // intr_status_2 = 0;
+            // maxim_max30102_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
+            // maxim_max30102_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
+            // NRF_LOG_INFO("2 status_1: 0x%02x, status_2: 0x%02x, gpio_value: %d", intr_status_1, intr_status_2, gpio_value);
+            // vTaskDelay(1);
+        }
+#endif
+        red = 0;
+        ir = 0;
+        maxim_max30102_read_fifo(&red, &ir);
+        //NRF_LOG_INFO("ir: %d", ir);
+        // ir = getIR();
+        ret = bpm_get_bpm_value(ir);
+        if (p_user_callback && bpm_get_beat_result()) {
+            bpm_set_beat_result();
+            s_max30102_timestamp = app_get_time_stamp();
+            user_event_hr_spo2.hr = !ret ? bpm_get_beatavg() : 0;
+            user_event_hr_spo2.spo2 = n_sp02;
+            if (max30102_collect_data_bak != user_event_hr_spo2.hr) {
+                max30102_collect_data_bak = user_event_hr_spo2.hr;
+                p_user_callback(1, (unsigned long)&user_event_hr_spo2);
+            }
+        }
+
+#if 0
         //dumping the first 100 sets of samples in the memory and shift the last 400 sets of samples to the top
         for (i = 100; i < 500; i++) {
             aun_red_buffer[i - 100] = aun_red_buffer[i];
@@ -311,6 +354,7 @@ int max30102_collect_data(void)
 			//	led=0;
 
             //send samples and calculation result to terminal program through UART
+            NRF_LOG_INFO("%08d\n", app_get_time_stamp());
             NRF_LOG_INFO("red: %08d, ir: %08d, HR: %08d, HRvalid: %d, SpO2: %08d, SPO2Valid: %d", \
                 aun_red_buffer[i], \
                 aun_ir_buffer[i], \
@@ -331,6 +375,7 @@ int max30102_collect_data(void)
             user_event_hr_spo2.spo2 = n_sp02;
             p_user_callback(1, (unsigned long)&user_event_hr_spo2);
         }
+#endif
     }
 }
 

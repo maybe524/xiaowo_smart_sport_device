@@ -106,16 +106,23 @@ static void dfu_observer(nrf_dfu_evt_type_t evt_type)
         case NRF_DFU_EVT_DFU_FAILED:
         case NRF_DFU_EVT_DFU_ABORTED:
         case NRF_DFU_EVT_DFU_INITIALIZED:
+#if 0
             bsp_board_init(BSP_INIT_LEDS);
             bsp_board_led_on(BSP_BOARD_LED_0);
             bsp_board_led_on(BSP_BOARD_LED_1);
             bsp_board_led_off(BSP_BOARD_LED_2);
+#endif
+            NRF_LOG_ERROR("%s %d", __func__, __LINE__);
             break;
         case NRF_DFU_EVT_TRANSPORT_ACTIVATED:
+#if 0
             bsp_board_led_off(BSP_BOARD_LED_1);
             bsp_board_led_on(BSP_BOARD_LED_2);
+#endif
+            NRF_LOG_ERROR("%s %d", __func__, __LINE__);
             break;
         case NRF_DFU_EVT_DFU_STARTED:
+            NRF_LOG_ERROR("%s %d", __func__, __LINE__);
             break;
         default:
             break;
@@ -140,6 +147,7 @@ int main(void)
     (void) NRF_LOG_INIT(nrf_bootloader_dfu_timer_counter_get);
     NRF_LOG_DEFAULT_BACKENDS_INIT();
 
+    NRF_LOG_INFO("\n\n")
     NRF_LOG_INFO("Inside main");
 
     ret_val = nrf_bootloader_init(dfu_observer);

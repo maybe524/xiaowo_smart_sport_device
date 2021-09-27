@@ -75,6 +75,7 @@
 #include "nrf_fstorage_nvmc.h"
 #include "common.h"
 #include "nrf_delay.h"
+#include "ble_dfu.h"
 
 #if defined (UART_PRESENT)
 #include "nrf_uart.h"
@@ -87,16 +88,17 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+
 #define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define DEVICE_NAME                     "Nordic_UART"                               /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME                     "Xiaowo-SD"                               /**< Name of device. Will be included in the advertising data. */
 #define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN                  /**< UUID type for the Nordic UART Service (vendor specific). */
 
 #define APP_BLE_OBSERVER_PRIO           3                                           /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 
-#define APP_ADV_INTERVAL                64                                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms). */
+#define APP_ADV_INTERVAL                300                                         /**< The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms). */
 
-#define APP_ADV_DURATION                18000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
+#define APP_ADV_DURATION                0                                           /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(75, UNIT_1_25_MS)             /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
@@ -124,6 +126,7 @@ static ble_uuid_t m_adv_uuids[]          =                                      
     {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}
 };
 static bool is_ble_connected = false;
+static ble_gap_addr_t s_ble_addr = {0};
 
 #if NRF_LOG_ENABLED
 static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
@@ -131,6 +134,10 @@ static TaskHandle_t m_logger_thread;                                /**< Definit
 
 bool g_is_fstorage_erased_done = false;
 bool g_is_fstorage_write_done = false;
+
+uint8_t g_version_main = 3;
+uint8_t g_version_mid = 0;
+uint8_t g_version_little = 7;
 
 /**@brief Function for assert macro callback.
  *
@@ -212,25 +219,42 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
     struct app_gen_command *cmd = NULL;
     uint32_t rx_length = 0, i = 0, j = 0, task_mask = 0;
     uint8_t buff[64] = {0};
+    uint8_t tmp1, tmp2;
+    uint8_t tmp_h, tmp_l;
     
-    NRF_LOG_INFO("nus_data_handler");
+    MSG_DEBUG("nus_data_handler");
     if (p_evt->type == BLE_NUS_EVT_RX_DATA) {
         // p_evt->params.rx_data.p_data, p_evt->params.rx_data.length
         for (i = 0; i < p_evt->params.rx_data.length; i++) {
-            NRF_LOG_INFO("data[%02d]: 0x%02x", i, p_evt->params.rx_data.p_data[i]);
+            MSG_DEBUG("data[%02d]: 0x%02x", i, p_evt->params.rx_data.p_data[i]);
         }
         memset(buff, 0, sizeof(buff));
         cmd = (struct app_gen_command *)p_evt->params.rx_data.p_data;
-        NRF_LOG_INFO("cmd->id: 0x%02x", cmd->id);
-        NRF_LOG_INFO("cmd->comm_id: 0x%04x", cmd->comm_id);
-        NRF_LOG_INFO("cmd->flags: 0x%02x", cmd->flags);
-        NRF_LOG_INFO("cmd->len: 0x%04x", BIG_ENDING_16(cmd->len));
-        NRF_LOG_INFO("cmd->buff: 0x%02x", cmd->buff[0]);
+        MSG_DEBUG("cmd->id: 0x%02x", cmd->id);
+        MSG_DEBUG("cmd->comm_id: 0x%04x", cmd->comm_id);
+        MSG_DEBUG("cmd->flags: 0x%02x", cmd->flags);
+        MSG_DEBUG("cmd->len: 0x%04x", BIG_ENDING_16(cmd->len));
+        MSG_DEBUG("cmd->buff: 0x%02x", cmd->buff[0]);
         // 兼容Android版本的nrf toolbox，此时下发的是ASCII码，需要转换成十六进制
         if (cmd->id >= '0') {
-            NRF_LOG_INFO("detect androind version nrf toolbox");
-            for (i = 0; i < p_evt->params.rx_data.length; i+=2)
-                buff[j++] = ((p_evt->params.rx_data.p_data[i] - '0') << 8) | (p_evt->params.rx_data.p_data[i + 1] - '0');
+            MSG_DEBUG("detect androind version nrf toolbox");
+            for (i = 0; i < p_evt->params.rx_data.length; i += 2) {
+                tmp1 = p_evt->params.rx_data.p_data[i];
+                tmp2 = p_evt->params.rx_data.p_data[i + 1];
+                if ('0' <= tmp1 && tmp1 < 'a')
+                    tmp_h = tmp1 - '0';
+                else if (tmp1 >= 'a')
+                    tmp_h = tmp1 - 'a' + 0x0a;
+                if ('0' <= tmp2 && tmp2 < 'a')
+                    tmp_l = tmp2 - '0';
+                else if (tmp2 >= 'a')
+                    tmp_l = tmp2 - 'a' + 0x0a;
+                buff[j++] = (tmp_h << 8) | tmp_l;
+            }
+            for (i = 0; i < j; i++) {
+                MSG_DEBUG("buff[%02d]: 0x%02x", i, buff[i]);
+            }
+
             cmd = (struct app_gen_command *)buff;
         }
         rx_length = p_evt->params.rx_data.length;
@@ -238,6 +262,7 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         case CMD_H2D_ID_SET_BIND:
             app_set_bind_num(cmd->buff);
             break;
+        
         case CMD_H2D_ID_SET_TASK:
             struct app_h2d_set_task_infos *info = (struct app_h2d_set_task_infos *)cmd->buff;
             // 三轴加速度
@@ -262,10 +287,28 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
                 else
                     vibr_set_close_test();
             }
+            // 三色灯
+            if (CHECK_MARKS(task_mask, 0x10)) {
+                if (info->task_need_open)
+                    vibr_set_show_power_led();
+                else
+                    vibr_set_off_power_led();
+            }
             break;
+        
         // 电量
         case CMD_H2D_ID_GET_BAT_PERCENT:
-            battery_get_power_percent();
+            battery_check_power_percent();
+            break;
+        
+        // 进去DFU
+        case CMD_H2D_ID_SET_ENTER_DFU:
+            app_set_misc_enter_dfu();
+            break;
+        
+        // 获取版本号
+        case CMD_H2D_ID_GET_VERSION:
+            app_get_misc_version();
             break;
         }
     }
@@ -406,7 +449,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
     uint32_t err_code;
 
-    NRF_LOG_INFO("ble_evt_handler, id: %d", p_ble_evt->header.evt_id - BLE_GAP_EVT_BASE);
+    MSG_DEBUG("ble_evt_handler, id: %d", p_ble_evt->header.evt_id - BLE_GAP_EVT_BASE);
     switch (p_ble_evt->header.evt_id) {
         case BLE_GAP_EVT_CONNECTED:
             NRF_LOG_INFO("Connected");
@@ -662,12 +705,29 @@ static void advertising_init(void)
 {
     uint32_t               err_code;
     ble_advertising_init_t init;
-
+    ble_advdata_manuf_data_t        manuf_data;
+    uint8_t data[]= {0xa1,0xb2,0xc3,0xd4,0xe5,0xa6,0xb7,0xc8,0xd9,0xab};
+    uint8_t tx_power_level = 4;
+    
+    data[0] = s_ble_addr.addr[0];
+    data[1] = s_ble_addr.addr[1];
+    data[2] = s_ble_addr.addr[2];
+    data[3] = s_ble_addr.addr[3];
+    data[4] = s_ble_addr.addr[4];
+    data[5] = s_ble_addr.addr[5];
+    manuf_data.company_identifier       = 0x0059; // Nordics company ID
+    manuf_data.data.p_data              = data;
+    manuf_data.data.size                = sizeof(data);
     memset(&init, 0, sizeof(init));
 
+    init.advdata.p_manuf_specific_data    = &manuf_data;
+    
     init.advdata.name_type          = BLE_ADVDATA_FULL_NAME;
     init.advdata.include_appearance = false;
-    init.advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE;
+    /// 
+    init.advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    
+    //init.advdata.p_tx_power_level = &tx_power_level;
 
     init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     init.srdata.uuids_complete.p_uuids  = m_adv_uuids;
@@ -899,6 +959,85 @@ bool app_get_bleconn_status(void)
     return is_ble_connected;
 }
 
+//断开连接
+static void ble_disconnect(uint16_t conn_handle, void * p_context)
+{
+    UNUSED_PARAMETER(p_context);
+
+    ret_code_t err_code = sd_ble_gap_disconnect(conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+    if (err_code != NRF_SUCCESS) {
+        NRF_LOG_WARNING("Failed to disconnect connection. Connection handle: %d Error: %d", conn_handle, err_code);
+    }
+    else {
+        NRF_LOG_DEBUG("Disconnected connection handle %d", conn_handle);
+    }
+}
+
+//获取广播配置参数
+static void advertising_config_get(ble_adv_modes_config_t * p_config)
+{
+    memset(p_config, 0, sizeof(ble_adv_modes_config_t));
+
+    p_config->ble_adv_fast_enabled  = true;
+    p_config->ble_adv_fast_interval = APP_ADV_INTERVAL;
+    p_config->ble_adv_fast_timeout  = APP_ADV_DURATION;
+}
+
+//DFU回调函数
+static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
+{
+	ret_code_t err_code;
+
+    switch (event) {
+    //在进入bootloader执行DFU前的准备工作
+    case BLE_DFU_EVT_BOOTLOADER_ENTER_PREPARE:
+        NRF_LOG_INFO("Device is preparing to enter bootloader mode.");
+        //防止设备断开连接时进行广播
+        ble_adv_modes_config_t config;
+        advertising_config_get(&config);
+        config.ble_adv_on_disconnect_disabled = true;
+        ble_advertising_modes_config_set(&m_advertising, &config);
+
+        // 断开当前的所有连接
+        uint32_t conn_count = ble_conn_state_for_each_connected(ble_disconnect, NULL);
+        NRF_LOG_INFO("Disconnected %d links.", conn_count);
+
+    case BLE_DFU_EVT_BOOTLOADER_ENTER:
+        NRF_LOG_INFO("Device will enter bootloader mode.");
+        break;
+
+    case BLE_DFU_EVT_BOOTLOADER_ENTER_FAILED:
+        NRF_LOG_ERROR("Request to enter bootloader mode failed asynchroneously.");
+        break;
+
+    case BLE_DFU_EVT_RESPONSE_SEND_ERROR:
+        NRF_LOG_ERROR("Request to send a response to client failed.");
+        APP_ERROR_CHECK(false);
+        break;
+
+    default:
+        NRF_LOG_ERROR("Unknown event from ble_dfu_buttonless.");
+        break;
+	}
+}
+
+static void dfu_s_init(void)
+{
+    uint32_t err_code;
+
+	ble_dfu_buttonless_init_t dfus_init = {0};
+	//注册DFU回调函数
+	dfus_init.evt_handler = ble_dfu_evt_handler;
+	//初始化DFU
+	err_code = ble_dfu_buttonless_init(&dfus_init);
+	APP_ERROR_CHECK(err_code);
+}
+
+static int app_dfu_init(void)
+{
+    dfu_s_init();
+}
+
 /**@brief Application main function.
  */
 int main(void)
@@ -917,12 +1056,24 @@ int main(void)
     gap_params_init();
     gatt_init();
     services_init();
+    sd_ble_gap_addr_get(&s_ble_addr);
     advertising_init();
     conn_params_init();
     
     // Start execution.
-	NRF_LOG_INFO("smart dev started, build time: %s %s", __DATE__, __TIME__);
+    NRF_LOG_INFO("\n");
+	NRF_LOG_INFO("smart dev started, build time: %s %s, version: %d.%d.%d", \
+        __DATE__, __TIME__, \
+        g_version_main, g_version_mid, g_version_little);
     NRF_LOG_INFO("heap size: 0x%x.", xPortGetFreeHeapSize());
+    NRF_LOG_INFO("ble addr: %02x:%02x:%02x:%02x:%02x:%02x", \
+        s_ble_addr.addr[5], \
+        s_ble_addr.addr[4], \
+        s_ble_addr.addr[3], \
+        s_ble_addr.addr[2], \
+        s_ble_addr.addr[1], \
+        s_ble_addr.addr[0]);
+
     // advertising_start();
     // Create a FreeRTOS task for the BLE stack.
     // The task will run advertising_start() before entering its loop.
@@ -937,7 +1088,12 @@ int main(void)
     }
 #endif
 
+#ifdef CONFIG_NOT_SUPPORT_STORAGE
+    NRF_LOG_INFO("close storage");
+#else
     nrf_platform_storage_init();
+#endif
+    app_dfu_init();
     app_module_init();
 
     // Start FreeRTOS scheduler.

@@ -47,7 +47,7 @@ extern "C" {
 #include "nrf_gpio.h"
 
 // LEDs definitions for PCA10040
-#define LEDS_NUMBER    4
+#define LEDS_NUMBER    0
 
 #define LED_START      17
 #define LED_1          17
@@ -67,7 +67,7 @@ extern "C" {
 #define BSP_LED_2      LED_3
 #define BSP_LED_3      LED_4
 
-#define BUTTONS_NUMBER 4
+#define BUTTONS_NUMBER 0
 
 #define BUTTON_START   13
 #define BUTTON_1       13

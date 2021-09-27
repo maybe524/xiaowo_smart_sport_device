@@ -10,6 +10,9 @@
 
 #define BUTTON_DETECTION_DELAY  APP_TIMER_TICKS(50)
 
+bool g_is_debug_mode = true;
+bool g_is_app_init_done = false;
+
 static void interrupt_event_handler(uint8_t pin_no, uint8_t button_action)
 {
     NRF_LOG_INFO("pin_no: %d, button_action: %d", pin_no, button_action);
@@ -33,6 +36,9 @@ static void app_interrupt_init(void)
 int app_module_init(void)
 {
     NRF_LOG_INFO("app_module_init, start");
+    
+    app_watchdog_init();
+    led_3gpio_init();
     app_storage_init();
     app_bind_init();
     app_vibr_init();
@@ -40,7 +46,10 @@ int app_module_init(void)
     app_battery_init();
     app_hr_oximeter_init();
     // app_interrupt_init();
+    app_time_init();
+    app_misc_init();
     NRF_LOG_INFO("app_module_init, done");
+    g_is_app_init_done = true;
     
     return 0;
 }

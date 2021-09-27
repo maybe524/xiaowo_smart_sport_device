@@ -531,6 +531,10 @@ void nrf_drv_twi_disable(nrf_drv_twi_t const * p_instance)
     }
 }
 
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
+
 __STATIC_INLINE
 ret_code_t nrf_drv_twi_tx(nrf_drv_twi_t const * p_instance,
                           uint8_t               address,
@@ -539,7 +543,7 @@ ret_code_t nrf_drv_twi_tx(nrf_drv_twi_t const * p_instance,
                           bool                  no_stop)
 {
     ret_code_t result = 0;
-    if (NRF_DRV_TWI_USE_TWIM)
+    if (NRF_DRV_TWI_USE_TWIM)   ///< DMA
     {
         result = nrfx_twim_tx(&p_instance->u.twim,
                                 address, p_data, length, no_stop);

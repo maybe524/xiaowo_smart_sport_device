@@ -435,6 +435,8 @@
 //------------------------------------------------------------------------------
 // PWM
 
+#define PWM_ENABLED 1
+
 #if defined(PWM_ENABLED)
 
 #undef NRFX_PWM_ENABLED
