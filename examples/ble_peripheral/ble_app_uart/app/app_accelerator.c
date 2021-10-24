@@ -8,7 +8,7 @@
 // #define CONFIG_TEST_ACCELERATOR
 
 static TaskHandle_t m_accelerator_service_thread;
-static volatile bool s_is_need_collect_accel = 1;
+static volatile bool s_is_need_collect_accel = false;
 static uint32_t accelerator_data_id = 0;
 bool g_is_accelerator_busy = false;
 extern bool g_is_app_init_done;

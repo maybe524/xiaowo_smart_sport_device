@@ -45,7 +45,6 @@ int app_module_init(void)
     app_accelerator_init();
     app_battery_init();
     app_hr_oximeter_init();
-    // app_interrupt_init();
     app_time_init();
     app_misc_init();
     NRF_LOG_INFO("app_module_init, done");

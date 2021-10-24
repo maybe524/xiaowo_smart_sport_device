@@ -21,13 +21,12 @@ static TaskHandle_t m_battery_service_thread;
 static bool is_need_upload_power_percent = true;
 static nrf_saadc_value_t m_buffer_pool[SAMPLES_IN_BUFFER];
 static volatile bool is_saadc_sample_done = false;
-static float s_battery_percentage = -1;
+static float s_battery_charging_curr_vol = -1;
 static unsigned int s_current_time = 0;
 static unsigned int s_battery_inited = 0;
 static unsigned int is_len_show_on = 0;
 static unsigned int s_battery_update_time = 0;
 static int s_is_battery_charging = 0;
-static unsigned int s_battery_all_power = 3700;
 static unsigned int s_is_need_show_battery_percent = 0;
 static float s_battery_deviation_value = 10.875;
 ///< 假设目前的充电是按2个小时充满，那么从2900充到3700计算，每分钟充6.7毫安时，
@@ -58,11 +57,14 @@ static const struct battery_charging_adc_map s_battery_charging_adc_map[] = {
     {2654,	2560},
 };
 
+static const unsigned int battery_charging_full_voltage = 4150;
+static const unsigned int battery_charging_low_voltage = 2900;
+
+static bool s_is_battery_charging_need_update_adc = false;
+
 
 int battery_set_all_power(unsigned int value)
-{
-    s_battery_all_power = value;
-    
+{    
     return 0;
 }
 
@@ -82,16 +84,16 @@ int battery_get_power_percent(unsigned int *p_power_percent)
     int ret = 0;
     unsigned int power_percent = 0;
     
-    if (s_battery_percentage < 0) {
+    if (s_battery_charging_curr_vol < 0) {
         ret = -1;
         goto L1;
     }
-    if (s_battery_percentage <= 2900) {
+    if (s_battery_charging_curr_vol <= battery_charging_low_voltage) {
         ret = -2;
         goto L1;
     }
     
-    power_percent = ((s_battery_percentage - 2900) / (s_battery_all_power - 2900)) * 100;
+    power_percent = ((s_battery_charging_curr_vol - battery_charging_low_voltage) / (battery_charging_full_voltage - battery_charging_low_voltage)) * 100;
     power_percent = power_percent > 100 ? 100 : power_percent;
 L1:
     *p_power_percent = power_percent;
@@ -108,33 +110,36 @@ static void saadc_callback(nrf_drv_saadc_evt_t const * p_event)
 {
     int i;
     ret_code_t err_code;
-    nrf_saadc_value_t adcResult = 0;
+    nrf_saadc_value_t adc_result = 0;
     unsigned int power_percent = 0;
 
     if (p_event->type == NRF_DRV_SAADC_EVT_DONE) {
         // 配置好缓存，为下一次转换做准备
         err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
         APP_ERROR_CHECK(err_code);
-        adcResult = p_event->data.done.p_buffer[0];
+        adc_result = p_event->data.done.p_buffer[0];
         ///< 根据电路计算
-        s_battery_percentage = ((((adcResult + s_battery_deviation_value) * 0.6) / 81) * 1.6) * 1000;
+        ///< s_battery_charging_curr_vol = ((((adc_result + s_battery_deviation_value) * 0.6) / 81) * 1.6) * 1000;
+        ///< ((261*(600/1024))*6)/1000/10*34.3=vbt=3.147v
+        s_battery_charging_curr_vol = adc_result * 12.05;
         is_saadc_sample_done = true;
     }
     
-    ///< 充电时，采样到的电压偏高
-    if (battery_get_power_charging()) {
-        for (i = 0; i < sizeof(s_battery_charging_adc_map) / sizeof(s_battery_charging_adc_map[0]); i++) {
-            if (s_battery_percentage > s_battery_charging_adc_map[i].charging_adc) {
-                NRF_LOG_INFO("adcResult, src: %d, final: %d", s_battery_percentage, s_battery_charging_adc_map[i].final_adc);
-                s_battery_percentage = s_battery_charging_adc_map[i].final_adc;
-                break;
-            }
+    if (s_is_battery_charging) {
+        if (!s_is_battery_charging_need_update_adc) {
+            s_is_battery_charging_need_update_adc = true;
         }
     }
     
     ///< 更新电池电量
     battery_get_power_percent(&power_percent);
-    NRF_LOG_INFO("adcResult: %d, VBAT: %d, percent: %d", adcResult, s_battery_percentage, power_percent);
+    NRF_LOG_INFO("----------------------");
+    NRF_LOG_INFO("time stamp: %d", app_get_time_stamp());
+    NRF_LOG_INFO("build: %s %s", __DATE__, __TIME__);
+    NRF_LOG_INFO("is_charging: %d", s_is_battery_charging);
+    NRF_LOG_INFO("adc_result: %d, curr voltage: %d, percent: %d", adc_result, s_battery_charging_curr_vol, power_percent);
+    NRF_LOG_INFO("full voltage: %d, low voltage: %d", battery_charging_full_voltage, battery_charging_low_voltage);
+    NRF_LOG_INFO("----------------------");
 }
 
 static void battery_saadc_uninit(void)
@@ -166,6 +171,16 @@ static void battery_saadc_sample(void)
     APP_ERROR_CHECK(errCode);
 }
 
+static short s_battery_charging_vol_array[10] = {0};
+static unsigned int s_battery_charging_vol_avg = 0;
+static unsigned int s_battery_charging_vol_cnt = 0;
+static bool s_is_battery_charging_vol_array_inited = false;
+static bool s_is_battery_charging_full = false;
+static unsigned int s_battery_charging_keep_time = 0;
+
+#define ARRAY_LEN(array)    (sizeof(array) / sizeof(array[0]))
+#define BATTERY_KEEP_CHARGUNG_TIME_IN_MS  (5 * 60 * 1000) 
+
 extern int sgm_31324_drv_openled(bool is_red_open, bool is_green_open, bool is_blue_open);
 // 处理电量上报业务
 static void battery_service_thread(void *arg)
@@ -175,7 +190,7 @@ static void battery_service_thread(void *arg)
     struct app_gen_command app_cmd;
     unsigned int timeout = 0;
     unsigned int power_percent = 0, power_percent_new = 0;
-    int is_battery_charging = 0;
+    int is_battery_charging_bak = 0;
     int is_need_update_led = 0;
     unsigned int battery_charging_start_time = 0, battery_charging_keep_time = 0;
     float battery_charging_add = 0;
@@ -199,7 +214,7 @@ TASK_GEN_ENTRY_STEP(0) {
     
         ///< 定时测量
         s_battery_update_time++;
-        if ((s_is_battery_charging && s_battery_update_time >= 10) || \
+        if ((s_is_battery_charging && s_battery_update_time >= 20) || \
                 (!s_is_battery_charging && s_battery_update_time >= 100))
         {
             s_battery_update_time = 0;
@@ -207,66 +222,98 @@ TASK_GEN_ENTRY_STEP(0) {
         }
 
         ///< 当充电和不充电时，都采样一次电池
-        if (is_battery_charging != s_is_battery_charging) {
-            ///< 插拔充电器瞬间，不准确，所以不要采样。需要延迟
-            vTaskDelay(500);
-            
-            is_battery_charging = s_is_battery_charging;
+        if (is_battery_charging_bak != s_is_battery_charging) {
+            is_battery_charging_bak = s_is_battery_charging;
             is_need_upload_power_percent = true;
-            is_need_update_led = 1;
-            s_battery_percentage_bak = s_battery_percentage;
-            battery_charging_start_time = app_get_time_stamp();
-        }
-        //NRF_LOG_INFO("is_charging: %d, update_time: %d", s_is_battery_charging, s_battery_update_time);
-        
-        ///< 充电时亮灯
-        if (s_is_battery_charging) {
-            battery_charging_keep_time = app_get_time_stamp() - battery_charging_start_time;
-            battery_get_power_percent(&power_percent);
+            s_is_battery_charging_need_update_adc = false;
+            s_is_battery_charging_vol_array_inited = false;
+            s_is_battery_charging_full = false;
             
-            battery_charging_add = ((float)battery_charging_keep_time / (1000 * 60)) * 0.8;
-            power_percent_new = (float)power_percent + battery_charging_add;
-            
-            power_percent_new = power_percent_new > 100 ? 100 : power_percent_new;
-            NRF_LOG_INFO("battery_service charging power_percent_new: %d, keep: %dms, add: %d", power_percent_new, \
-                battery_charging_keep_time, battery_charging_add);
-            if (power_percent_new < 0)
-                is_need_upload_power_percent = true;
-            else if (power_percent_new < 100)
-                led_3gpio_set_led(1, 0, 0);
-            else if (power_percent_new >= 100)
-                led_3gpio_set_led(0, 1, 0);
-        }
-        ///< 不充电时，灭灯
-        else {
-            if (is_need_update_led) {
-                is_need_update_led = 0;
-                led_3gpio_set_led(0, 0, 0);
-            }
-        }
-        
-        ///< 预估值。解决目前充电时，测量电压不准确问题
-        if (s_is_battery_charging && is_need_upload_power_percent) {
-            is_need_upload_power_percent = false;
-            step = 3;
-            continue;
+            led_3gpio_set_led(0, 0, 0);
         }
         
         ///< 判断是否需要采样电量
-        if (!is_need_upload_power_percent)
-            continue;
-        else
-            step++;
-      }
-        
-TASK_GEN_ENTRY_STEP(1) {
-        nrf_gpio_cfg_output(GPIO_PIN_ON_OFF);
-        nrf_gpio_pin_set(GPIO_PIN_ON_OFF);
-        is_need_upload_power_percent = false;
-        step++;
+        if (s_is_battery_charging)
+            step = 1;
+        else if (is_need_upload_power_percent)
+            step = 4;
       }
 
+///< 充电前的初始化，获取电量
+TASK_GEN_ENTRY_STEP(1) {
+        unsigned char x = 0, len = 0;
+        
+        if (!s_is_battery_charging_need_update_adc) {
+            step = 4;
+            continue;
+        }
+
+        s_battery_charging_vol_array[s_battery_charging_vol_cnt] = s_battery_charging_curr_vol;
+        s_battery_charging_vol_cnt++;
+        if (s_battery_charging_vol_cnt > ARRAY_LEN(s_battery_charging_vol_array) - 1) {
+            s_battery_charging_vol_cnt = 0;
+            s_is_battery_charging_vol_array_inited = true;
+        }
+        
+        len = s_is_battery_charging_vol_array_inited ? \
+            ARRAY_LEN(s_battery_charging_vol_array) : s_battery_charging_vol_cnt;
+        s_battery_charging_vol_avg = 0;
+        
+        for (x = 0 ; x < len ; x++)
+            s_battery_charging_vol_avg += s_battery_charging_vol_array[x];
+        s_battery_charging_vol_avg /= len;
+        
+        if (s_is_battery_charging && !s_is_battery_charging_full)
+            step = 2;
+        else if (s_is_battery_charging && s_is_battery_charging_full)
+            step = 3;
+        else
+            step = 4;
+      }
+
+///< 处理充电过程
 TASK_GEN_ENTRY_STEP(2) {
+        if (s_battery_charging_vol_avg > battery_charging_full_voltage) {
+            if (!s_battery_charging_keep_time)
+                s_battery_charging_keep_time = app_get_time_stamp();
+            if (app_get_time_stamp() - s_battery_charging_keep_time >= BATTERY_KEEP_CHARGUNG_TIME_IN_MS) {
+                s_is_battery_charging_full = true;
+                step = 3;
+                continue;
+            }
+            led_3gpio_set_led(0, 1, 0);
+        }
+        else if (s_battery_charging_vol_avg <= battery_charging_full_voltage) {
+            led_3gpio_set_led(1, 0, 0);
+        }
+    
+        NRF_LOG_INFO("handle low vol, curr vol: %d, avg vol: %d, keep time: %d", \
+            s_battery_charging_curr_vol, \
+            s_battery_charging_vol_avg, \
+            s_battery_charging_keep_time ? app_get_time_stamp() - s_battery_charging_keep_time : 0);
+        step = 4;
+      }
+
+///< 处理充满以后电量自己会掉下来问题
+TASK_GEN_ENTRY_STEP(3) {
+        NRF_LOG_INFO("handle full vol, curr vol: %d, avg vol: %d, keep time: %d", \
+            s_battery_charging_curr_vol, \
+            s_battery_charging_vol_avg, \
+            s_battery_charging_keep_time ? app_get_time_stamp() - s_battery_charging_keep_time : 0);
+        led_3gpio_set_led(0, 1, 0);
+        step = 4;
+      }
+
+TASK_GEN_ENTRY_STEP(4) {
+        if (!is_need_upload_power_percent) {
+            step = 0;
+            continue;
+        }
+
+        nrf_gpio_cfg_output(GPIO_PIN_ON_OFF);
+        nrf_gpio_pin_set(GPIO_PIN_ON_OFF);
+        vTaskDelay(300);
+        is_need_upload_power_percent = false;
         NRF_LOG_INFO("battery_saadc_sample start");
         is_saadc_sample_done = false;
         battery_saadc_sample();
@@ -284,7 +331,7 @@ TASK_GEN_ENTRY_STEP(2) {
         step++;
     }
 
-TASK_GEN_ENTRY_STEP(3) {
+TASK_GEN_ENTRY_STEP(5) {
         memset(&app_cmd, 0, sizeof(struct app_gen_command));
         p_power_percent = (struct app_d2h_power_percent *)app_cmd.buff;
         p_power_percent->percent = power_percent_new;

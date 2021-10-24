@@ -136,7 +136,7 @@ bool g_is_fstorage_erased_done = false;
 bool g_is_fstorage_write_done = false;
 
 uint8_t g_version_main = 3;
-uint8_t g_version_mid = 0;
+uint8_t g_version_mid = 1;
 uint8_t g_version_little = 7;
 
 /**@brief Function for assert macro callback.
@@ -1097,6 +1097,7 @@ int main(void)
     app_module_init();
 
     // Start FreeRTOS scheduler.
+    NRF_LOG_INFO("enter task scheduler");
     vTaskStartScheduler();
     for (;;) {
         APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);

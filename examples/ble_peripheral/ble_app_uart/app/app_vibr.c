@@ -116,14 +116,16 @@ static int vibr_run_mix(void)
     char led_status = 1;
     bool is_vibr_run_mix_inited = false;
     unsigned int pwm_timeout = 0;
+    bool is_need_switch_on = false;
+    unsigned int vbir_keep_run_timestamp = 0;
 
     NRF_LOG_INFO("vibr_run_mix start");
 
     while (true) {
 retry:
         NRF_LOG_INFO("vibr_run_mix power_percent: %02d, time: %04d, charging: %d, %d, %d", \
-            power_percent, time_exit_show_gap, battery_get_power_charging(),\
-            is_need_show_power_by_vbir_led, is_need_vibr_test);
+                power_percent, time_exit_show_gap, battery_get_power_charging(),\
+                is_need_show_power_by_vbir_led, is_need_vibr_test);
         if (!is_need_show_power_by_vbir_led && !is_need_vibr_test) {
             NRF_LOG_INFO("timeout: %d, show_power: %d, vibr_test: %d", \
                 time_exit_show_gap, \
@@ -142,7 +144,11 @@ retry:
                 goto next1;
             }
 
-            if (power_percent < 5) {
+            ///< LED灯根据电量显示
+            ///< 1) 绿色表示电量大于80%；
+            ///< 2) 红色表示低于20%；
+            ///< 3）红灯闪烁 + 马达震动5秒表示电量低于10%
+            if (power_percent < 10) {
                 if (!is_vibr_run_mix_inited) {
                     vibr_pwm_init();
                     app_pwm_enable(&PWM1);
@@ -168,7 +174,12 @@ retry:
                         vTaskDelay(25);
                     }
                     vTaskDelay(25);
-                    led_3gpio_set_led(1, 0, 0);
+                    vbir_keep_run_timestamp++;
+                    if (vbir_keep_run_timestamp > 12) {
+                        vbir_keep_run_timestamp = 0;
+                        led_3gpio_set_led(is_need_switch_on, 0, 0);
+                        is_need_switch_on = is_need_switch_on ? false : true;
+                    }
                 }
                 while (true) {
                     if (app_pwm_channel_duty_set(&PWM1, 0, 0) != NRF_ERROR_BUSY)
@@ -176,7 +187,7 @@ retry:
                     vTaskDelay(25);
                 }
             }
-            else if (5 < power_percent && power_percent <= 20)
+            else if (10 < power_percent && power_percent <= 20)
                 led_3gpio_set_led(1, 0, 0);
             else if (20 < power_percent)
                 led_3gpio_set_led(0, 1, 0);
