@@ -9,6 +9,8 @@
 #include "nrf_delay.h"
 #include "app_pwm.h"
 
+#define CONFIG_SHOW_BATTERY_PERCENT_BY_LED_VBIRT_KEEP_TIME  2
+
 #define MOTOR_PIN   3
 APP_PWM_INSTANCE(PWM1, 1);                   // Create the instance "PWM1" using TIMER1.
 
@@ -139,7 +141,7 @@ retry:
             if (ret && time_exit_show_gap < 20) {
                 goto next1;
             }
-            else if (!ret && time_exit_show_gap >= 10) {
+            if (time_exit_show_gap >= CONFIG_SHOW_BATTERY_PERCENT_BY_LED_VBIRT_KEEP_TIME) {
                 is_need_show_power_by_vbir_led = false;
                 goto next1;
             }
@@ -173,6 +175,8 @@ retry:
                         pwm_timeout--;
                         vTaskDelay(25);
                     }
+                    if (time_exit_show_gap >= CONFIG_SHOW_BATTERY_PERCENT_BY_LED_VBIRT_KEEP_TIME)
+                        break;
                     vTaskDelay(25);
                     vbir_keep_run_timestamp++;
                     if (vbir_keep_run_timestamp > 12) {
@@ -195,12 +199,11 @@ retry:
 
 next1:
         if (is_need_vibr_test) {
-#if 1
             if (!is_need_vibr_test || !app_get_bleconn_status() || time_exit_show_gap >= 10) {
                 is_need_vibr_test = false;
                 goto next2;
             }
-#endif
+            
             if (!is_vibr_run_mix_inited) {
                 vibr_pwm_init();
                 app_pwm_enable(&PWM1);

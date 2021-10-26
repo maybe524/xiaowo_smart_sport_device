@@ -61,7 +61,17 @@ static const unsigned int battery_charging_full_voltage = 4150;
 static const unsigned int battery_charging_low_voltage = 2900;
 
 static bool s_is_battery_charging_need_update_adc = false;
+static short s_battery_charging_vol_array[10] = {0};
+static unsigned int s_battery_charging_vol_avg = 0;
+static unsigned int s_battery_charging_vol_cnt = 0;
+static bool s_is_battery_charging_vol_array_inited = false;
+static bool s_is_battery_charging_full = false;
+static unsigned int s_battery_charging_keep_time = 0;
 
+#define ARRAY_LEN(array)    (sizeof(array) / sizeof(array[0]))
+#define BATTERY_KEEP_CHARGUNG_TIME_IN_MS  (5 * 60 * 1000) 
+
+extern int sgm_31324_drv_openled(bool is_red_open, bool is_green_open, bool is_blue_open);
 
 int battery_set_all_power(unsigned int value)
 {    
@@ -171,17 +181,6 @@ static void battery_saadc_sample(void)
     APP_ERROR_CHECK(errCode);
 }
 
-static short s_battery_charging_vol_array[10] = {0};
-static unsigned int s_battery_charging_vol_avg = 0;
-static unsigned int s_battery_charging_vol_cnt = 0;
-static bool s_is_battery_charging_vol_array_inited = false;
-static bool s_is_battery_charging_full = false;
-static unsigned int s_battery_charging_keep_time = 0;
-
-#define ARRAY_LEN(array)    (sizeof(array) / sizeof(array[0]))
-#define BATTERY_KEEP_CHARGUNG_TIME_IN_MS  (5 * 60 * 1000) 
-
-extern int sgm_31324_drv_openled(bool is_red_open, bool is_green_open, bool is_blue_open);
 // 处理电量上报业务
 static void battery_service_thread(void *arg)
 {
@@ -201,8 +200,8 @@ static void battery_service_thread(void *arg)
         GPIO_PIN_VBUS_ADC,
         NRF_GPIO_PIN_DIR_INPUT,
         NRF_GPIO_PIN_INPUT_CONNECT,
-        NRF_GPIO_PIN_PULLDOWN,
-        NRF_GPIO_PIN_D0S1,
+        NRF_GPIO_PIN_NOPULL,
+        NRF_GPIO_PIN_S0S1,
         NRF_GPIO_PIN_NOSENSE);
     ///< 默认启动时，先来一次采样
     is_need_upload_power_percent = true;
@@ -228,7 +227,8 @@ TASK_GEN_ENTRY_STEP(0) {
             s_is_battery_charging_need_update_adc = false;
             s_is_battery_charging_vol_array_inited = false;
             s_is_battery_charging_full = false;
-            
+            s_battery_charging_vol_cnt = 0;
+            s_battery_charging_keep_time = 0;
             led_3gpio_set_led(0, 0, 0);
         }
         
@@ -300,7 +300,7 @@ TASK_GEN_ENTRY_STEP(3) {
             s_battery_charging_curr_vol, \
             s_battery_charging_vol_avg, \
             s_battery_charging_keep_time ? app_get_time_stamp() - s_battery_charging_keep_time : 0);
-        led_3gpio_set_led(0, 1, 0);
+        led_3gpio_set_led(0, 0, 0);
         step = 4;
       }
 

@@ -136,8 +136,12 @@ bool g_is_fstorage_erased_done = false;
 bool g_is_fstorage_write_done = false;
 
 uint8_t g_version_main = 3;
-uint8_t g_version_mid = 1;
-uint8_t g_version_little = 7;
+uint8_t g_version_mid = 2;
+uint8_t g_version_little = 1;
+
+typedef void (*pPortUserTask_t)(void);
+
+extern void vPortUserTaskSet(pPortUserTask_t userTask);
 
 /**@brief Function for assert macro callback.
  *
@@ -1033,6 +1037,12 @@ static void dfu_s_init(void)
 	APP_ERROR_CHECK(err_code);
 }
 
+///< 调度失败的时候，会调用此函数
+static void freertos_user_task(void)
+{
+    NRF_LOG_FLUSH();
+}
+
 static int app_dfu_init(void)
 {
     dfu_s_init();
@@ -1097,6 +1107,7 @@ int main(void)
     app_module_init();
 
     // Start FreeRTOS scheduler.
+    vPortUserTaskSet(freertos_user_task);
     NRF_LOG_INFO("enter task scheduler");
     vTaskStartScheduler();
     for (;;) {

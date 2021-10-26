@@ -147,6 +147,19 @@ StackType_t *pxPortInitialiseStack( StackType_t *pxTopOfStack, TaskFunction_t px
 }
 /*-----------------------------------------------------------*/
 
+#define CONFIG_FREE_RTOS_SUPPORT_USER_DEBUG
+
+#ifdef CONFIG_FREE_RTOS_SUPPORT_USER_DEBUG
+typedef void (*pPortUserTask_t)(void);
+
+static pPortUserTask_t sPportUserTask = NULL;
+
+void vPortUserTaskSet(pPortUserTask_t userTask)
+{
+    sPportUserTask = userTask;
+}
+#endif
+
 static void prvTaskExitError( void )
 {
     /* A function that implements a task must not exit or attempt to return to
@@ -157,7 +170,15 @@ static void prvTaskExitError( void )
     defined, then stop here so application writers can catch the error. */
     configASSERT( uxCriticalNesting == ~0UL );
     portDISABLE_INTERRUPTS();
+#ifdef CONFIG_FREE_RTOS_SUPPORT_USER_DEBUG
+    for ( ;; ) {
+        if (sPportUserTask) {
+            sPportUserTask();
+        }
+    }
+#else
     for ( ;; );
+#endif
 }
 
 
