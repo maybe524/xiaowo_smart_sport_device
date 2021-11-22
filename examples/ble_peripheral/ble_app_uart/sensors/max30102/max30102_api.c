@@ -67,7 +67,7 @@
 #include "app_pwm.h"
 #include "app.h"
 
-#define MAX30102_INT_PIN    19
+#define MAX30102_INT_PIN    18
 #define MAX_BRIGHTNESS 255
 #define MAX30102_LEN_PIN    9
 
@@ -134,32 +134,38 @@ static int max30102_pwm_test(void)
 
 
 // the setup routine runs once when you press reset:
-int max30102_init(void)
+int max30102_api_init(void)
 {
     uint8_t revision_id = 0, part_id = 0;
     bool ret;
 
     NRF_LOG_INFO("max30102_init");
     max30102_twi_init();
-    ret = maxim_max30102_read_reg(REG_REV_ID, &revision_id, 1);
+    ret = max30102_drv_read_reg(REG_REV_ID, &revision_id, 1);
     if (!ret) {
         NRF_LOG_INFO("max30102 read fail");
         return -1;
     }
-    maxim_max30102_read_reg(REG_PART_ID, &part_id, 1);
+    max30102_drv_read_reg(REG_PART_ID, &part_id, 1);
     NRF_LOG_INFO("revision_id: 0x%02x, part_id: 0x%02x", revision_id, part_id);
     if (part_id != 0x15) {
         NRF_LOG_INFO("max30102_init fail");
         return -2;
     }
     // 中断是低有效，所有要上拉
-    //nrf_gpio_cfg_input(MAX30102_INT_PIN, NRF_GPIO_PIN_PULLUP);
-    // nrf_gpio_cfg_input(MAX30102_LED_PIN, NRF_GPIO_PIN_PULLUP);
-
-    maxim_max30102_reset(); //resets the MAX30102
+    // nrf_gpio_cfg_input(MAX30102_INT_PIN, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg(
+        MAX30102_INT_PIN,
+        NRF_GPIO_PIN_DIR_INPUT,
+        NRF_GPIO_PIN_INPUT_CONNECT,
+        NRF_GPIO_PIN_NOPULL,
+        NRF_GPIO_PIN_S0S1,
+        NRF_GPIO_PIN_NOSENSE);
+    
+    max30102_drv_reset(); //resets the MAX30102
     //read and clear status register
-    maxim_max30102_read_reg(0, &uch_dummy, 1);
-    ret = maxim_max30102_init();  //initializes the MAX30102
+    max30102_drv_read_reg(0, &uch_dummy, 1);
+    ret = max30102_drv_init();  //initializes the MAX30102
     NRF_LOG_INFO("maxim_max30102_init, ret: %d", ret);
     if (!ret)
         return -3;
@@ -167,11 +173,11 @@ int max30102_init(void)
     return (int)true;
 }
 
-int max30102_exit(void)
+int max30102_api_exit(void)
 {
     NRF_LOG_INFO("max30102_module_exit");
     // nrf_gpio_cfg_default(MAX30102_INT_PIN);
-    maxim_max30102_reset();
+    max30102_drv_reset();
 
     return 0;
 }
@@ -184,8 +190,9 @@ int max30102_user_event_callback_init(common_event_callback_t p_call_back)
 }
 
 static unsigned int max30102_collect_data_bak = 0;
+extern bool s_is_need_open_hr, g_is_hr_oximeter_need_red_ir_raw_data;
 
-int max30102_collect_data(void)
+int max30102_api_collect_data(void)
 {
     int i, ret;
     int32_t n_brightness;
@@ -197,60 +204,29 @@ int max30102_collect_data(void)
         unsigned int hr, spo2;
     };
     struct event_hr_spo2 user_event_hr_spo2 = {0};
+    struct event_red_ir {
+        unsigned int red, ir;
+    };
+    struct event_red_ir user_event_red_ir = {0};
     uint32_t ir = 0, red = 0;
+    int on_flag = 0;
 
-    n_brightness = 0;
-    un_min = 0x3FFFF;
-    un_max = 0;
-    n_ir_buffer_length = 500; //buffer length of 100 stores 5 seconds of samples running at 100sps
     intr_enable_1 = 0;
     intr_enable_2 = 0;
 
     NRF_LOG_INFO("max30102_collect_data test");
+    heart_rate_alg_init();
 
-    maxim_max30102_read_reg(REG_INTR_ENABLE_1, &intr_status_1, 1);
-    maxim_max30102_read_reg(REG_INTR_ENABLE_2, &intr_status_2, 1);
+    max30102_drv_read_reg(REG_INTR_ENABLE_1, &intr_status_1, 1);
+    // max30102_drv_read_reg(REG_INTR_ENABLE_2, &intr_status_2, 1);
     NRF_LOG_INFO("enable_1: 0x%x, enable_2: 0x%x", intr_status_1, intr_status_2);
 
-    //read the first 500 samples, and determine the signal range
-#if 1
-    for (i = 0; i < n_ir_buffer_length; i++) {
-        //while(INT.read()==1);   //wait until the interrupt pin asserts
-        timeout_cnt = 100000;
-#if 0
-        while (1) {
-            gpio_value = nrf_gpio_pin_read(MAX30102_INT_PIN);
-            timeout_cnt--;
-            intr_status_1 = 0;
-            intr_status_2 = 0;
-            maxim_max30102_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
-            maxim_max30102_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
-            NRF_LOG_INFO("1 status_1: 0x%02x, status_2: 0x%02x, gpio_value: %d", intr_status_1, intr_status_2, gpio_value);
-            if (!gpio_value || !timeout_cnt)
-                break;
-            // vTaskDelay(1);
-        }
-#endif
-        if (!timeout_cnt)
-            NRF_LOG_INFO("waiting timeout");
-        // NRF_LOG_INFO("nrf_gpio_pin_read low");
-        maxim_max30102_read_fifo((aun_red_buffer + i), (aun_ir_buffer + i));  //read from MAX30102 FIFO
-        if (un_min > aun_red_buffer[i]) {
-            un_min = aun_red_buffer[i];    //update signal min
-        }
-        if (un_max < aun_red_buffer[i]) {
-            un_max = aun_red_buffer[i];    //update signal max
-        }
-        NRF_LOG_INFO("red = %i, ir = %i", aun_red_buffer[i], aun_ir_buffer[i]);
-    }
-    un_prev_data = aun_red_buffer[i];
 
-    //calculate heart rate and SpO2 after first 500 samples (first 5 seconds of samples)
-    maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, n_ir_buffer_length, aun_red_buffer, &n_sp02, &ch_spo2_valid, &n_heart_rate, &ch_hr_valid);
-#endif
     //Continuously taking samples from MAX30102.  Heart rate and SpO2 are calculated every 1 second
     s_max30102_timestamp = app_get_time_stamp();
-    while (1) {
+    ///< 读一次数据
+    max30102_drv_read_fifo(&red, &ir);
+    while (true) {
         i = 0;
         un_min = 0x3FFFF;
         un_max = 0;
@@ -262,126 +238,70 @@ int max30102_collect_data(void)
         }
         
         timeout_cnt = 100000;
-#if 0
         while (true) {
             gpio_value = nrf_gpio_pin_read(MAX30102_INT_PIN);
-            timeout_cnt--;
-            if (!gpio_value || !timeout_cnt)
-                break;
-            // intr_status_1 = 0;
-            // intr_status_2 = 0;
-            // maxim_max30102_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
-            // maxim_max30102_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
+            intr_status_1 = 0;
+            intr_status_2 = 0;
+            max30102_drv_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
+            // max30102_drv_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
             // NRF_LOG_INFO("2 status_1: 0x%02x, status_2: 0x%02x, gpio_value: %d", intr_status_1, intr_status_2, gpio_value);
-            // vTaskDelay(1);
+            timeout_cnt--;
+            if (!gpio_value || !timeout_cnt || (intr_status_1 & 0x40))
+                break;
+            vTaskDelay(1);
+        }
+        
+#if 0
+        if (on_flag) {
+            led_3gpio_set_led(1, 1, 1);
+            on_flag = 0;
+        }
+        else {
+            led_3gpio_set_led(0, 0, 0);
+            on_flag = 1;
         }
 #endif
+        /// 清理中断
+        max30102_drv_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
+        max30102_drv_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
+
         red = 0;
         ir = 0;
-        maxim_max30102_read_fifo(&red, &ir);
-        //NRF_LOG_INFO("ir: %d", ir);
-        // ir = getIR();
-        ret = bpm_get_bpm_value(ir);
-        if (p_user_callback && bpm_get_beat_result()) {
-            bpm_set_beat_result();
-            s_max30102_timestamp = app_get_time_stamp();
-            user_event_hr_spo2.hr = !ret ? bpm_get_beatavg() : 0;
-            user_event_hr_spo2.spo2 = n_sp02;
-            if (max30102_collect_data_bak != user_event_hr_spo2.hr) {
-                max30102_collect_data_bak = user_event_hr_spo2.hr;
-                p_user_callback(1, (unsigned long)&user_event_hr_spo2);
-            }
-        }
+        max30102_drv_read_fifo(&red, &ir);
 
-#if 0
-        //dumping the first 100 sets of samples in the memory and shift the last 400 sets of samples to the top
-        for (i = 100; i < 500; i++) {
-            aun_red_buffer[i - 100] = aun_red_buffer[i];
-            aun_ir_buffer[i - 100] = aun_ir_buffer[i];
-            //update the signal min and max
-            if (un_min > aun_red_buffer[i]) {
-                un_min = aun_red_buffer[i];
-            }
-            if(un_max < aun_red_buffer[i]) {
-                un_max = aun_red_buffer[i];
-            }
-        }
+        NRF_LOG_INFO("%08d, hr: %d, irq: %d, red: %d, ir: %d, flags: %x", \
+            app_get_time_stamp(), ret, gpio_value, red, ir, \
+            (s_is_need_open_hr | (g_is_hr_oximeter_need_red_ir_raw_data << 1)));
 
-        //take 100 sets of samples before calculating the heart rate.
-        for (i = 400; i < 500; i++) {
-            un_prev_data = aun_red_buffer[i - 1];
-            //while(INT.read()==1);
-            timeout_cnt = 100000;
-            while (true) {
-                gpio_value = nrf_gpio_pin_read(MAX30102_INT_PIN);
-                timeout_cnt--;
-                if (!gpio_value || !timeout_cnt)
-                    break;
-                // intr_status_1 = 0;
-                // intr_status_2 = 0;
-                // maxim_max30102_read_reg(REG_INTR_STATUS_1, &intr_status_1, 1);
-                // maxim_max30102_read_reg(REG_INTR_STATUS_2, &intr_status_2, 1);
-                // NRF_LOG_INFO("2 status_1: 0x%02x, status_2: 0x%02x, gpio_value: %d", intr_status_1, intr_status_2, gpio_value);
-                // vTaskDelay(1);
-            }
-            // NRF_LOG_INFO("exit waiting, remain: %d, gpio_value: %d", timeout_cnt, gpio_value);
-            maxim_max30102_read_fifo((aun_red_buffer + i), (aun_ir_buffer + i));
-
-            //just to determine the brightness of LED according to the deviation of adjacent two AD data
-            if (aun_red_buffer[i] > un_prev_data) {
-                f_temp = aun_red_buffer[i] - un_prev_data;
-                f_temp /= (un_max-un_min);
-                f_temp *= MAX_BRIGHTNESS;
-                n_brightness -= (int)f_temp;
-                if (n_brightness < 0) {
-                    n_brightness = 0;
+        ///< 上传心率值
+        if (s_is_need_open_hr && p_user_callback) {
+            ret = bpm_get_bpm_value(ir);
+            if (bpm_get_beat_result()) {
+                bpm_set_beat_result();
+                s_max30102_timestamp = app_get_time_stamp();
+                user_event_hr_spo2.hr = !ret ? bpm_get_beatavg() : 0;
+                user_event_hr_spo2.spo2 = n_sp02;
+                if (max30102_collect_data_bak != user_event_hr_spo2.hr) {
+                    max30102_collect_data_bak = user_event_hr_spo2.hr;
+                    p_user_callback(1, (unsigned long)&user_event_hr_spo2);
                 }
             }
-            else {
-                f_temp = un_prev_data - aun_red_buffer[i];
-                f_temp /= (un_max-un_min);
-                f_temp *= MAX_BRIGHTNESS;
-                n_brightness += (int)f_temp;
-                if (n_brightness > MAX_BRIGHTNESS) {
-                    n_brightness = MAX_BRIGHTNESS;
-                }
-            }
-
-            //pwmled.write(1-(float)n_brightness/256);//pwm control led brightness
-			//if(n_brightness<120)
-            //    led=1;
-			//else
-			//	led=0;
-
-            //send samples and calculation result to terminal program through UART
-            NRF_LOG_INFO("%08d\n", app_get_time_stamp());
-            NRF_LOG_INFO("red: %08d, ir: %08d, HR: %08d, HRvalid: %d, SpO2: %08d, SPO2Valid: %d", \
-                aun_red_buffer[i], \
-                aun_ir_buffer[i], \
-                n_heart_rate, \
-                ch_hr_valid, \
-                n_sp02, \
-                ch_spo2_valid);
         }
-        maxim_heart_rate_and_oxygen_saturation(aun_ir_buffer, \
-                n_ir_buffer_length, \
-                aun_red_buffer, \
-                &n_sp02, \
-                &ch_spo2_valid, \
-                &n_heart_rate, \
-                &ch_hr_valid);
-        if (p_user_callback && ch_hr_valid && ch_spo2_valid) {
-            user_event_hr_spo2.hr = n_heart_rate;
-            user_event_hr_spo2.spo2 = n_sp02;
-            p_user_callback(1, (unsigned long)&user_event_hr_spo2);
+        
+        ///< 上传采样原始数据
+        if (g_is_hr_oximeter_need_red_ir_raw_data && p_user_callback) {
+            user_event_red_ir.red = red;
+            user_event_red_ir.ir = ir;
+            p_user_callback(2, (unsigned long)&user_event_red_ir);
         }
-#endif
+        
+        vTaskDelay(1);
     }
 }
 
-int max30102_collect_raw_data(uint32_t *aun_red, uint32_t *aun_ir)
+int max30102_api_collect_raw_data(uint32_t *aun_red, uint32_t *aun_ir)
 {
-    maxim_max30102_read_fifo(aun_red, aun_ir);
+    max30102_drv_read_fifo(aun_red, aun_ir);
 
     return 0;
 }

@@ -3855,11 +3855,6 @@
           <GroupName>Sensors_MAX30102</GroupName>
           <Files>
             <File>
-              <FileName>algorithm.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\sensors\max30102\algorithm\algorithm.c</FilePath>
-            </File>
-            <File>
               <FileName>max30102_api.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\max30102_api.c</FilePath>
@@ -3879,6 +3874,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\max30102\max30102_config.c</FilePath>
             </File>
+            <File>
+              <FileName>algorithm2.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\algorithm2\algorithm2.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -3888,6 +3888,21 @@
               <FileName>led_3gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\led_3gpio\led_3gpio.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Lib</GroupName>
+          <Files>
+            <File>
+              <FileName>fft.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lib\fft\fft.c</FilePath>
+            </File>
+            <File>
+              <FileName>heart_rate_alg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lib\heart_rate_alg\heart_rate_alg.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -7747,11 +7762,6 @@
           <GroupName>Sensors_MAX30102</GroupName>
           <Files>
             <File>
-              <FileName>algorithm.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\..\sensors\max30102\algorithm\algorithm.c</FilePath>
-            </File>
-            <File>
               <FileName>max30102_api.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\max30102_api.c</FilePath>
@@ -7771,6 +7781,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\max30102\max30102\max30102_config.c</FilePath>
             </File>
+            <File>
+              <FileName>algorithm2.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\sensors\max30102\algorithm2\algorithm2.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -7780,6 +7795,21 @@
               <FileName>led_3gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\sensors\led_3gpio\led_3gpio.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Lib</GroupName>
+          <Files>
+            <File>
+              <FileName>fft.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lib\fft\fft.c</FilePath>
+            </File>
+            <File>
+              <FileName>heart_rate_alg.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lib\heart_rate_alg\heart_rate_alg.c</FilePath>
             </File>
           </Files>
         </Group>

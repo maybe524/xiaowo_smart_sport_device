@@ -144,7 +144,7 @@ void max30102_twi_init(void)
     NRF_LOG_INFO("max30102_twi_init done");
 }
 
-bool maxim_max30102_write_reg(uint8_t uch_addr, uint8_t uch_data)
+bool max30102_drv_write_reg(uint8_t uch_addr, uint8_t uch_data)
 /**
 * \brief        Write a value to a MAX30102 register
 * \par          Details
@@ -190,7 +190,7 @@ L1:
     return ret;
 }
 
-bool maxim_max30102_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
+bool max30102_drv_read_reg(uint8_t uch_addr, uint8_t *puch_data, uint8_t len)
 /**
 * \brief        Read a MAX30102 register
 * \par          Details
@@ -248,7 +248,7 @@ L1:
     return ret;
 }
 
-bool maxim_max30102_init()
+bool max30102_drv_init()
 /**
 * \brief        Initialize the MAX30102
 * \par          Details
@@ -259,51 +259,54 @@ bool maxim_max30102_init()
 * \retval       true on success
 */
 {
-  //	max30100_write_reg(MAX30100_MODE_CONFIG,0x0B);//使能TEMP、HR、SPO2
-  //	max30100_write_reg(MAX30100_INT_ENABLE,0xF0); //开启中断
-  //	max30100_write_reg(MAX30100_LED_CONFIG,0x33); //LED电流配置：11mA
-  //	max30100_write_reg(MAX30100_SPO2_CONFIG,0x43);
+    int i;
+    unsigned char val = 0;
 
-#if 0
-  //使能A_FULL_EN 和 PPG_RDY_EN 中断
-  if(!maxim_max30102_write_reg(REG_INTR_ENABLE_1,0xc0)) // INTR setting
-    return false;
-  if(!maxim_max30102_write_reg(REG_INTR_ENABLE_2,0x00))
-    return false;
-  if(!maxim_max30102_write_reg(REG_FIFO_WR_PTR,0x00))  //FIFO_WR_PTR[4:0]
-    return false;
-  if(!maxim_max30102_write_reg(REG_OVF_COUNTER,0x00))  //OVF_COUNTER[4:0]
-    return false;
-  if(!maxim_max30102_write_reg(REG_FIFO_RD_PTR,0x00))  //FIFO_RD_PTR[4:0]
-    return false;
-  if(!maxim_max30102_write_reg(REG_FIFO_CONFIG,0x0f))  //sample avg = 1, fifo rollover=false, fifo almost full = 17
-    return false;
-  if(!maxim_max30102_write_reg(REG_MODE_CONFIG,0x03))   //0x02 for Red only, 0x03 for SpO2 mode 0x07 multimode LED
-    return false;
-  if(!maxim_max30102_write_reg(REG_SPO2_CONFIG,0x27))  // SPO2_ADC range = 4096nA, SPO2 sample rate (100 Hz), LED pulseWidth (400uS)
-    return false;
-  if(!maxim_max30102_write_reg(REG_LED1_PA,0x24))   //Choose value for ~ 7mA for LED1
-    return false;
-  if(!maxim_max30102_write_reg(REG_LED2_PA,0x24))   // Choose value for ~ 7mA for LED2
-    return false;
-  if(!maxim_max30102_write_reg(REG_PILOT_PA,0x7f))   // Choose value for ~ 25mA for Pilot LED
-    return false;
+#if 1
+    //使能A_FULL_EN 和 PPG_RDY_EN 中断
+    ///< 0x02
+    max30102_drv_write_reg(REG_INTR_ENABLE_1, 0xc0); // INTR setting
+    ///< 0x03
+    max30102_drv_write_reg(REG_INTR_ENABLE_2, 0x00);
+    ///< 0x04
+    max30102_drv_write_reg(REG_FIFO_WR_PTR, 0x00);  // FIFO_WR_PTR[4:0]，FIFO指针清零
+    ///< 0x05
+    max30102_drv_write_reg(REG_OVF_COUNTER, 0x00);  // OVF_COUNTER[4:0]，FIFO指针清零
+    ///< 0x06
+    max30102_drv_write_reg(REG_FIFO_RD_PTR, 0x00);  // FIFO_RD_PTR[4:0]，FIFO指针清零
+    ///< 0x08
+    max30102_drv_write_reg(REG_FIFO_CONFIG, 0x0f);  // sample avg = 1, fifo rollover=false, fifo almost full = 17
+    ///< SPO2模式其实会产生两个通道的数据Red（心率）和IR（血氧）
+    ///< 0x09
+    max30102_drv_write_reg(REG_MODE_CONFIG, 0x03);  //0x02 for Red only, 0x03 for SpO2 mode 0x07 multimode LED
+    
+    ///< 0x0a
+    ///< 18Bit的分辨率；100Hz；
+    ///< [6:5]量程是8192
+    max30102_drv_write_reg(REG_SPO2_CONFIG, 0x47);  // SPO2_ADC range = 4096nA, SPO2 sample rate (100 Hz), LED pulseWidth (400uS)
+    ///< 0x0c
+    max30102_drv_write_reg(REG_LED1_PA, 0x40);   // Choose value for ~ 7mA for LED1
+    ///< 0x0d
+    max30102_drv_write_reg(REG_LED2_PA, 0x40);   // Choose value for ~ 7mA for LED2
+    ///< 0x10
+    max30102_drv_write_reg(REG_PILOT_PA, 0x7f);  // Choose value for ~ 25mA for Pilot LED
+    ///< 0x30寄存器
+    ///< PROX模式只是在检测是否有手指放在上边
+    // max30102_drv_write_reg(REG_PROX_INT_THRESH, 0x7f);   // Choose value for ~ 25mA for Pilot LED
 #else
-  int i;
-  unsigned char val = 0;
-  
-  setupDriver();
-  
-  for (i = 0; i < 0x30; i++) {
-    val = 0;
-    maxim_max30102_read_reg(i, &val, 1);
-    NRF_LOG_INFO("reg: %02d, val: %d", i, val);
-  }
+    setupDriver();
 #endif
-  return true;  
+
+    for (i = 0; i < 0x31; i++) {
+        val = 0;
+        max30102_drv_read_reg(i, &val, 1);
+        NRF_LOG_INFO("max30102 regconf 0x%02x => 0x%02x", i, val);
+    }
+    
+    return true;  
 }
 
-bool maxim_max30102_read_fifo(uint32_t *pun_red_led, uint32_t *pun_ir_led)
+bool max30102_drv_read_fifo(uint32_t *pun_red_led, uint32_t *pun_ir_led)
 /**
 * \brief        Read a set of samples from the MAX30102 FIFO register
 * \par          Details
@@ -315,54 +318,56 @@ bool maxim_max30102_read_fifo(uint32_t *pun_red_led, uint32_t *pun_ir_led)
 * \retval       true on success
 */
 {
-  uint32_t un_temp;
-  unsigned char uch_temp;
-  *pun_red_led=0;
-  *pun_ir_led=0;
-  char ach_i2c_data[6];
-  bool ret;
+    uint32_t un_temp;
+    unsigned char uch_temp;
+    char ach_i2c_data[6];
+    bool ret;
   
-  //read and clear status register
-  maxim_max30102_read_reg(REG_INTR_STATUS_1, &uch_temp, 1);
-  maxim_max30102_read_reg(REG_INTR_STATUS_2, &uch_temp, 1);
+    *pun_red_led=0;
+    *pun_ir_led=0;
+    
+    //read and clear status register
+    //max30102_drv_read_reg(REG_INTR_STATUS_1, &uch_temp, 1);
+    //max30102_drv_read_reg(REG_INTR_STATUS_2, &uch_temp, 1);
   
-  ach_i2c_data[0]=REG_FIFO_DATA;
+    ach_i2c_data[0]=REG_FIFO_DATA;
 #ifdef HXW
-  if(i2c.write(I2C_WRITE_ADDR, ach_i2c_data, 1, true)!=0)
-    return false;
-  if(i2c.read(I2C_READ_ADDR, ach_i2c_data, 6, false)!=0)
-  {
-    return false;
-  }
+    if(i2c.write(I2C_WRITE_ADDR, ach_i2c_data, 1, true)!=0)
+        return false;
+    if(i2c.read(I2C_READ_ADDR, ach_i2c_data, 6, false)!=0)
+    {
+        return false;
+    }
 #endif
-  ret = maxim_max30102_read_reg(REG_FIFO_DATA, (uint8_t *)ach_i2c_data, 6);
-  if (!ret)
-      return ret;
-  un_temp=(unsigned char) ach_i2c_data[0];
-  un_temp<<=16;
-  *pun_red_led+=un_temp;
-  un_temp=(unsigned char) ach_i2c_data[1];
-  un_temp<<=8;
-  *pun_red_led+=un_temp;
-  un_temp=(unsigned char) ach_i2c_data[2];
-  *pun_red_led+=un_temp;
+    ret = max30102_drv_read_reg(REG_FIFO_DATA, (uint8_t *)ach_i2c_data, 6);
+    if (!ret)
+        return ret;
+    ///< Red值
+    un_temp = (unsigned char) ach_i2c_data[0];
+    un_temp <<= 16;
+    *pun_red_led += un_temp;
+    un_temp = (unsigned char) ach_i2c_data[1];
+    un_temp <<= 8;
+    *pun_red_led += un_temp;
+    un_temp = (unsigned char) ach_i2c_data[2];
+    *pun_red_led += un_temp;
   
-  un_temp=(unsigned char) ach_i2c_data[3];
-  un_temp<<=16;
-  *pun_ir_led+=un_temp;
-  un_temp=(unsigned char) ach_i2c_data[4];
-  un_temp<<=8;
-  *pun_ir_led+=un_temp;
-  un_temp=(unsigned char) ach_i2c_data[5];
-  *pun_ir_led+=un_temp;
-  *pun_red_led&=0x03FFFF;  //Mask MSB [23:18]
-  *pun_ir_led&=0x03FFFF;  //Mask MSB [23:18]
+    ///< IR值
+    un_temp = (unsigned char) ach_i2c_data[3];
+    un_temp <<= 16;
+    *pun_ir_led += un_temp;
+    un_temp = (unsigned char) ach_i2c_data[4];
+    un_temp <<= 8;
+    *pun_ir_led += un_temp;
+    un_temp = (unsigned char) ach_i2c_data[5];
+    *pun_ir_led += un_temp;
+    *pun_red_led &= 0x03FFFF;  //Mask MSB [23:18]
+    *pun_ir_led  &= 0x03FFFF;  //Mask MSB [23:18]
   
-  
-  return true;
+    return true;
 }
 
-bool maxim_max30102_reset()
+bool max30102_drv_reset()
 /**
 * \brief        Reset the MAX30102
 * \par          Details
@@ -373,7 +378,7 @@ bool maxim_max30102_reset()
 * \retval       true on success
 */
 {
-    if(!maxim_max30102_write_reg(REG_MODE_CONFIG,0x40))
+    if(!max30102_drv_write_reg(REG_MODE_CONFIG,0x40))
         return false;
     else
         return true;    

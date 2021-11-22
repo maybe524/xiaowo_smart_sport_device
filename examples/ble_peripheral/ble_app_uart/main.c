@@ -135,13 +135,14 @@ static TaskHandle_t m_logger_thread;                                /**< Definit
 bool g_is_fstorage_erased_done = false;
 bool g_is_fstorage_write_done = false;
 
-uint8_t g_version_main = 3;
-uint8_t g_version_mid = 2;
+uint8_t g_version_main = 4;
+uint8_t g_version_mid = 0;
 uint8_t g_version_little = 1;
 
 typedef void (*pPortUserTask_t)(void);
 
 extern void vPortUserTaskSet(pPortUserTask_t userTask);
+extern int hr_oximeter_set_red_ir_raw_data(int en);
 
 /**@brief Function for assert macro callback.
  *
@@ -234,11 +235,12 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         }
         memset(buff, 0, sizeof(buff));
         cmd = (struct app_gen_command *)p_evt->params.rx_data.p_data;
-        MSG_DEBUG("cmd->id: 0x%02x", cmd->id);
+        MSG_DEBUG("");
+        MSG_DEBUG("cmd->id     : 0x%02x", cmd->id);
         MSG_DEBUG("cmd->comm_id: 0x%04x", cmd->comm_id);
-        MSG_DEBUG("cmd->flags: 0x%02x", cmd->flags);
-        MSG_DEBUG("cmd->len: 0x%04x", BIG_ENDING_16(cmd->len));
-        MSG_DEBUG("cmd->buff: 0x%02x", cmd->buff[0]);
+        MSG_DEBUG("cmd->flags  : 0x%02x", cmd->flags);
+        MSG_DEBUG("cmd->len    : 0x%04x", BIG_ENDING_16(cmd->len));
+        MSG_DEBUG("cmd->buff   : 0x%02x", cmd->buff[0]);
         // 兼容Android版本的nrf toolbox，此时下发的是ASCII码，需要转换成十六进制
         if (cmd->id >= '0') {
             MSG_DEBUG("detect androind version nrf toolbox");
@@ -279,10 +281,23 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
             }
             // 心率血氧
             if (CHECK_MARKS(task_mask, 0x03)) {
-                if (info->task_need_open)
-                    hr_oximeter_open_all();
-                else
-                    hr_oximeter_close_all();
+                if (info->task_need_open) {
+                    ///< 0表示打开心率
+                    if (info->task_param == 0x00) {
+                        hr_oximeter_open_all();
+                    }
+                    else if (info->task_param == 0x01) {
+                        hr_oximeter_set_red_ir_raw_data(1);
+                    }
+                }
+                else {
+                    if (info->task_param == 0x00) {
+                        hr_oximeter_close_all();
+                    }
+                    else if (info->task_param == 0x01) {
+                        hr_oximeter_set_red_ir_raw_data(0);
+                    }
+                }
             }
             // 马达
             if (CHECK_MARKS(task_mask, 0x08)) {
@@ -429,7 +444,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 {
     uint32_t err_code;
 
-    NRF_LOG_INFO("on_adv_evt, ble_adv_evt: %d", ble_adv_evt);
+    kprintf("on_adv_evt, ble_adv_evt: %d", ble_adv_evt);
     switch (ble_adv_evt) {
         case BLE_ADV_EVT_FAST:
             err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
@@ -456,7 +471,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     MSG_DEBUG("ble_evt_handler, id: %d", p_ble_evt->header.evt_id - BLE_GAP_EVT_BASE);
     switch (p_ble_evt->header.evt_id) {
         case BLE_GAP_EVT_CONNECTED:
-            NRF_LOG_INFO("Connected");
+            kprintf("Connected");
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
@@ -466,7 +481,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected");
+            kprintf("Disconnected");
             // LED indication will be changed when advertising starts.
             m_conn_handle = BLE_CONN_HANDLE_INVALID;
             is_ble_connected = false;
@@ -474,7 +489,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
-            NRF_LOG_INFO("PHY update request.");
+            kprintf("PHY update request.");
             ble_gap_phys_t const phys =
             {
                 .rx_phys = BLE_GAP_PHY_AUTO,
@@ -485,21 +500,21 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         } break;
 
         case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
-            NRF_LOG_INFO("BLE_GAP_EVT_SEC_PARAMS_REQUEST");
+            kprintf("BLE_GAP_EVT_SEC_PARAMS_REQUEST");
             // Pairing not supported
             err_code = sd_ble_gap_sec_params_reply(m_conn_handle, BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP, NULL, NULL);
             APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GATTS_EVT_SYS_ATTR_MISSING:
-            NRF_LOG_INFO("BLE_GATTS_EVT_SYS_ATTR_MISSING");
+            kprintf("BLE_GATTS_EVT_SYS_ATTR_MISSING");
             // No system attributes have been stored.
             err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0, 0);
             APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GATTC_EVT_TIMEOUT:
-            NRF_LOG_INFO("BLE_GATTC_EVT_TIMEOUT");
+            kprintf("BLE_GATTC_EVT_TIMEOUT");
             // Disconnect on GATT Client timeout event.
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -507,7 +522,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             break;
 
         case BLE_GATTS_EVT_TIMEOUT:
-            NRF_LOG_INFO("BLE_GATTS_EVT_TIMEOUT");
+            kprintf("BLE_GATTS_EVT_TIMEOUT");
             // Disconnect on GATT Server timeout event.
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -541,7 +556,7 @@ static void ble_stack_init(void)
     // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("ram_start: 0x%08x", ram_start);
+    kprintf("ram_start: 0x%08x", ram_start);
 
     // Register a handler for BLE events.
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
@@ -554,7 +569,7 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
     if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
     {
         m_ble_nus_max_data_len = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
-        NRF_LOG_INFO("Data len is set to 0x%X(%d)", m_ble_nus_max_data_len, m_ble_nus_max_data_len);
+        kprintf("Data len is set to 0x%X(%d)", m_ble_nus_max_data_len, m_ble_nus_max_data_len);
     }
     NRF_LOG_DEBUG("ATT MTU exchange completed. central 0x%x peripheral 0x%x",
                   p_gatt->att_mtu_desired_central,
@@ -583,7 +598,7 @@ void bsp_event_handler(bsp_event_t event)
 {
     uint32_t err_code;
     
-    NRF_LOG_INFO("bsp_event_handler, event: %d", event);
+    kprintf("bsp_event_handler, event: %d", event);
     switch (event) {
     case BSP_EVENT_SLEEP:
         sleep_mode_enter();
@@ -623,7 +638,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
     static uint8_t index = 0;
     uint32_t       err_code;
 
-    NRF_LOG_INFO("uart_event_handle, evt_type: %d", p_event->evt_type);
+    kprintf("uart_event_handle, evt_type: %d", p_event->evt_type);
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
@@ -702,6 +717,54 @@ static void uart_init(void)
 }
 /**@snippet [UART Initialization] */
 
+#define ADV_FLAGS_CHARGING_OFFS     (0x00)
+
+///< 组合成标志位，用于广播。目前只用1个字节
+static int advertising_get_all_flags(uint8_t *p_flags)
+{
+    uint8_t flags = 0;
+    bool is_detect_charging = false;
+
+    if (!p_flags)
+        return -1;
+    is_detect_charging = battery_get_power_charging();
+    flags = (flags & ~(1 << ADV_FLAGS_CHARGING_OFFS)) | ((is_detect_charging & 0x01) << ADV_FLAGS_CHARGING_OFFS);
+    
+    *p_flags = flags;
+
+    return 0;
+}
+
+static uint8_t s_advertising_data[]= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static int advertising_get_default_advdata(ble_advdata_t *p_advdata)
+{
+    uint32_t               err_code;
+    ble_advertising_init_t init;
+    ble_advdata_manuf_data_t        manuf_data;
+    uint8_t tx_power_level = 4;
+    
+    s_advertising_data[0] = s_ble_addr.addr[0];
+    s_advertising_data[1] = s_ble_addr.addr[1];
+    s_advertising_data[2] = s_ble_addr.addr[2];
+    s_advertising_data[3] = s_ble_addr.addr[3];
+    s_advertising_data[4] = s_ble_addr.addr[4];
+    s_advertising_data[5] = s_ble_addr.addr[5];
+    
+    err_code = advertising_get_all_flags(&s_advertising_data[6]);
+    
+    manuf_data.company_identifier       = 0x0059; // Nordics company ID
+    manuf_data.data.p_data              = s_advertising_data;
+    manuf_data.data.size                = sizeof(s_advertising_data);
+
+    p_advdata->p_manuf_specific_data    = &manuf_data;
+    
+    p_advdata->name_type          = BLE_ADVDATA_FULL_NAME;
+    p_advdata->include_appearance = false;
+    /// 
+    p_advdata->flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    
+    return 0;
+}
 
 /**@brief Function for initializing the Advertising functionality.
  */
@@ -710,7 +773,7 @@ static void advertising_init(void)
     uint32_t               err_code;
     ble_advertising_init_t init;
     ble_advdata_manuf_data_t        manuf_data;
-    uint8_t data[]= {0xa1,0xb2,0xc3,0xd4,0xe5,0xa6,0xb7,0xc8,0xd9,0xab};
+    uint8_t data[]= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t tx_power_level = 4;
     
     data[0] = s_ble_addr.addr[0];
@@ -719,18 +782,24 @@ static void advertising_init(void)
     data[3] = s_ble_addr.addr[3];
     data[4] = s_ble_addr.addr[4];
     data[5] = s_ble_addr.addr[5];
+    
+    err_code = advertising_get_all_flags(&data[6]);
+    
     manuf_data.company_identifier       = 0x0059; // Nordics company ID
     manuf_data.data.p_data              = data;
     manuf_data.data.size                = sizeof(data);
     memset(&init, 0, sizeof(init));
 
+#if 1
     init.advdata.p_manuf_specific_data    = &manuf_data;
     
     init.advdata.name_type          = BLE_ADVDATA_FULL_NAME;
     init.advdata.include_appearance = false;
     /// 
     init.advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-    
+#endif
+    // advertising_get_default_advdata(&init.advdata);
+
     //init.advdata.p_tx_power_level = &tx_power_level;
 
     init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
@@ -747,6 +816,52 @@ static void advertising_init(void)
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
 
+static ble_advertising_init_t s_init;
+void advertising_reinit(void)
+{
+    uint32_t               err_code;
+    ret_code_t ret;
+    
+    ble_advdata_manuf_data_t        manuf_data;
+    uint8_t data[]= {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t tx_power_level = 4;
+    bool is_detect_charging = false;
+    
+    data[0] = s_ble_addr.addr[0];
+    data[1] = s_ble_addr.addr[1];
+    data[2] = s_ble_addr.addr[2];
+    data[3] = s_ble_addr.addr[3];
+    data[4] = s_ble_addr.addr[4];
+    data[5] = s_ble_addr.addr[5];
+    
+    err_code = advertising_get_all_flags(&data[6]);
+    
+    manuf_data.company_identifier       = 0x0059; // Nordics company ID
+    manuf_data.data.p_data              = data;
+    manuf_data.data.size                = sizeof(data);
+    memset(&s_init, 0, sizeof(s_init));
+
+    s_init.advdata.p_manuf_specific_data    = &manuf_data;
+    
+    s_init.advdata.name_type          = BLE_ADVDATA_FULL_NAME;
+    s_init.advdata.include_appearance = false;
+    /// 
+    s_init.advdata.flags              = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+
+    // sd_ble_gap_adv_stop(m_advertising.adv_handle);
+    // vTaskDelay(100);
+    
+    err_code = ble_advertising_advdata_update(&m_advertising, &s_init.advdata, NULL);
+    kprintf("advertising_reinit err_code: %d", err_code);
+    vTaskDelay(10);
+    
+    // ret = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+    // kprintf("ble_advertising_start err_code: %d", ret);
+    // vTaskDelay(100);
+    // if ((ret != NRF_SUCCESS) && (m_advertising.error_handler != NULL)) {
+    //     m_advertising.error_handler(ret);
+    // }
+}
 
 /**@brief Function for initializing buttons and leds.
  *
@@ -824,7 +939,7 @@ static void logger_thread(void * arg)
     UNUSED_PARAMETER(arg);
     while (1) {
         NRF_LOG_FLUSH();
-        // NRF_LOG_INFO("%s %d: %08d", __func__, __LINE__, n++);
+        // kprintf("%s %d: %08d", __func__, __LINE__, n++);
         //vTaskSuspend(NULL); // Suspend myself
         vTaskDelay(3);
     }
@@ -854,17 +969,17 @@ void power_manage(void)
 static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
 {
     if (p_evt->result != NRF_SUCCESS) {
-        NRF_LOG_INFO("--> Event received: ERROR while executing an fstorage operation.");
+        kprintf("--> Event received: ERROR while executing an fstorage operation.");
         return;
     }
     switch (p_evt->id) {
     case NRF_FSTORAGE_EVT_WRITE_RESULT:
         g_is_fstorage_write_done = true;
-        NRF_LOG_INFO("--> Event received: wrote %d bytes at address 0x%x.", p_evt->len, p_evt->addr);
+        kprintf("--> Event received: wrote %d bytes at address 0x%x.", p_evt->len, p_evt->addr);
         break;
     case NRF_FSTORAGE_EVT_ERASE_RESULT:
         g_is_fstorage_erased_done = true;
-        NRF_LOG_INFO("--> Event received: erased %d page from address 0x%x.", p_evt->len, p_evt->addr);
+        kprintf("--> Event received: erased %d page from address 0x%x.", p_evt->len, p_evt->addr);
         break;
     default:
         break;
@@ -891,10 +1006,10 @@ NRF_FSTORAGE_DEF(nrf_fstorage_t fstorage) =
 
 static void print_flash_info(nrf_fstorage_t * p_fstorage)
 {
-    NRF_LOG_INFO("========| flash info |========");
-    NRF_LOG_INFO("erase unit: \t%d bytes",      p_fstorage->p_flash_info->erase_unit);
-    NRF_LOG_INFO("program unit: \t%d bytes",    p_fstorage->p_flash_info->program_unit);
-    NRF_LOG_INFO("==============================");
+    kprintf("========| flash info |========");
+    kprintf("erase unit: \t%d bytes",      p_fstorage->p_flash_info->erase_unit);
+    kprintf("program unit: \t%d bytes",    p_fstorage->p_flash_info->program_unit);
+    kprintf("==============================");
 }
 
 /**@brief   Helper function to obtain the last address on the last page of the on-chip flash that
@@ -995,7 +1110,7 @@ static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
     switch (event) {
     //在进入bootloader执行DFU前的准备工作
     case BLE_DFU_EVT_BOOTLOADER_ENTER_PREPARE:
-        NRF_LOG_INFO("Device is preparing to enter bootloader mode.");
+        kprintf("Device is preparing to enter bootloader mode.");
         //防止设备断开连接时进行广播
         ble_adv_modes_config_t config;
         advertising_config_get(&config);
@@ -1004,10 +1119,10 @@ static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
 
         // 断开当前的所有连接
         uint32_t conn_count = ble_conn_state_for_each_connected(ble_disconnect, NULL);
-        NRF_LOG_INFO("Disconnected %d links.", conn_count);
+        kprintf("Disconnected %d links.", conn_count);
 
     case BLE_DFU_EVT_BOOTLOADER_ENTER:
-        NRF_LOG_INFO("Device will enter bootloader mode.");
+        kprintf("Device will enter bootloader mode.");
         break;
 
     case BLE_DFU_EVT_BOOTLOADER_ENTER_FAILED:
@@ -1048,6 +1163,16 @@ static int app_dfu_init(void)
     dfu_s_init();
 }
 
+#define FPU_EXCEPTION_MASK 0x0000009F
+
+void FPU_IRQHandler(void)
+{
+    uint32_t *fpscr = (uint32_t *)(FPU->FPCAR+0x40);
+    (void)__get_FPSCR();
+
+    *fpscr = *fpscr & ~(FPU_EXCEPTION_MASK);
+}
+
 /**@brief Application main function.
  */
 int main(void)
@@ -1071,18 +1196,21 @@ int main(void)
     conn_params_init();
     
     // Start execution.
-    NRF_LOG_INFO("\n");
-	NRF_LOG_INFO("smart dev started, build time: %s %s, version: %d.%d.%d", \
+    kprintf("\n");
+	kprintf("smart dev started, build time: %s %s, version: %d.%d.%d", \
         __DATE__, __TIME__, \
         g_version_main, g_version_mid, g_version_little);
-    NRF_LOG_INFO("heap size: 0x%x.", xPortGetFreeHeapSize());
-    NRF_LOG_INFO("ble addr: %02x:%02x:%02x:%02x:%02x:%02x", \
+    kprintf("heap size: 0x%x.", xPortGetFreeHeapSize());
+    kprintf("ble addr: %02x:%02x:%02x:%02x:%02x:%02x", \
         s_ble_addr.addr[5], \
         s_ble_addr.addr[4], \
         s_ble_addr.addr[3], \
         s_ble_addr.addr[2], \
         s_ble_addr.addr[1], \
         s_ble_addr.addr[0]);
+        
+    NVIC_SetPriority(FPU_IRQn, APP_IRQ_PRIORITY_LOW);
+    NVIC_EnableIRQ(FPU_IRQn);
 
     // advertising_start();
     // Create a FreeRTOS task for the BLE stack.
@@ -1099,7 +1227,7 @@ int main(void)
 #endif
 
 #ifdef CONFIG_NOT_SUPPORT_STORAGE
-    NRF_LOG_INFO("close storage");
+    kprintf("close storage");
 #else
     nrf_platform_storage_init();
 #endif
@@ -1108,7 +1236,7 @@ int main(void)
 
     // Start FreeRTOS scheduler.
     vPortUserTaskSet(freertos_user_task);
-    NRF_LOG_INFO("enter task scheduler");
+    kprintf("enter task scheduler");
     vTaskStartScheduler();
     for (;;) {
         APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);

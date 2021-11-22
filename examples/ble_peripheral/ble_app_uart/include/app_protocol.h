@@ -2,10 +2,10 @@
 
 #pragma pack(1)
 struct app_gen_command {
-    uint8_t     id;
-    uint16_t    comm_id;
-    uint8_t     flags;
-    uint16_t    len;
+    uint8_t     id;         ///< 绑定指令
+    uint16_t    comm_id;    ///< 指令TAG
+    uint8_t     flags;      ///< 标志位
+    uint16_t    len;        ///< 长度
     uint8_t     buff[20];
 };
 
@@ -16,7 +16,9 @@ struct app_d2h_accelerator_data {
 };
 
 struct app_d2h_red_ir_data {
+    ///< 功能项
     uint16_t    opt_task;
+    ///< 报文含义
     uint8_t     opt_id;
     uint32_t    red, ir;
 };

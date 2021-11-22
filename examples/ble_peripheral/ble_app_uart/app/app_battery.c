@@ -181,6 +181,19 @@ static void battery_saadc_sample(void)
     APP_ERROR_CHECK(errCode);
 }
 
+static void battery_advertising_update(void)
+{
+#if 1
+    if (!app_get_bleconn_status()) {
+        NRF_LOG_INFO("advertising reinit!");
+        advertising_reinit();
+    }
+#endif
+    
+    return;
+}
+
+
 // 处理电量上报业务
 static void battery_service_thread(void *arg)
 {
@@ -230,6 +243,7 @@ TASK_GEN_ENTRY_STEP(0) {
             s_battery_charging_vol_cnt = 0;
             s_battery_charging_keep_time = 0;
             led_3gpio_set_led(0, 0, 0);
+            battery_advertising_update();
         }
         
         ///< 判断是否需要采样电量

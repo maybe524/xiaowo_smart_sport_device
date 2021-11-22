@@ -4,10 +4,11 @@
 #include "app_protocol.h"
 
 static TaskHandle_t m_hr_oximeter_thread;
-static volatile bool s_is_need_open_hr = false, s_is_need_open_oximter = false;
+volatile bool s_is_need_open_hr = false, s_is_need_open_oximter = false;
 extern bool g_is_need_stop_hr_spo2;
 extern bool g_is_app_init_done;
 bool g_is_hr_oximeter_busy = false;
+bool g_is_hr_oximeter_need_red_ir_raw_data = false;
 
 int hr_oximeter_open_hr(void)
 {
@@ -50,9 +51,18 @@ int hr_oximeter_close_all(void)
     return 0;
 }
 
+int hr_oximeter_set_red_ir_raw_data(int en)
+{    
+    g_is_hr_oximeter_need_red_ir_raw_data = en ? true : false;
+    
+    return 0;
+}
+
 int hr_oximeter_check_condiction(void)
 {
-    if (!app_get_bleconn_status() || !s_is_need_open_hr) {
+    if (!app_get_bleconn_status() || \
+        (!s_is_need_open_hr && !g_is_hr_oximeter_need_red_ir_raw_data))
+    {
         return 0;
     }
 
@@ -77,9 +87,30 @@ static int hr_oximeter_max30102_event_callback(int event, unsigned long data)
         app_cmd.len = 7;
         p_hr_spo2 = (struct app_d2h_hr_spo2_data *)app_cmd.buff;
         p_hr_spo2->opt_task = CHANG_TO_BIGENDING(0x03);
-        p_hr_spo2->opt_id = 0x02;
+        p_hr_spo2->opt_id = 0x02;       ///< 表示测量结果
         p_hr_spo2->hr = p_event_val->hr;
         p_hr_spo2->spo2 = p_event_val->spo2;
+        app_send_2host((uint8_t *)&app_cmd, sizeof(struct app_gen_command));
+        break;
+    }
+    
+    case 2: {
+        struct event_red_ir {
+            unsigned int red, ir;
+        };
+        struct event_red_ir *p_event_val = (struct event_red_ir *)data;
+        struct app_gen_command app_cmd;
+        struct app_d2h_red_ir_data *p_red_ir = NULL;
+        
+        memset(&app_cmd, 0, sizeof(struct app_gen_command));
+        app_cmd.id = CMD_D2H_ID_GET_TASK;
+        app_cmd.flags = 0x02;
+        app_cmd.len = 8;
+        p_red_ir = (struct app_d2h_red_ir_data *)app_cmd.buff;
+        p_red_ir->opt_task = CHANG_TO_BIGENDING(0x03);
+        p_red_ir->opt_id = 0x03;        ///< 表示采样数据
+        p_red_ir->red = p_event_val->red;
+        p_red_ir->ir = p_event_val->ir;
         app_send_2host((uint8_t *)&app_cmd, sizeof(struct app_gen_command));
         break;
     }
@@ -184,14 +215,17 @@ TASK_GEN_ENTRY_STEP(0) {
             vTaskDelay(200);
             continue;
         }
-        max30102_init();
-        max30102_exit();
+        max30102_api_init();
+        max30102_api_exit();
         step++;
       }
 
 TASK_GEN_ENTRY_STEP(1) {
-        if (!s_is_need_open_hr && !s_is_need_open_oximter)
+        if (!s_is_need_open_hr && !s_is_need_open_oximter && \
+                !g_is_hr_oximeter_need_red_ir_raw_data)
+        {
             vTaskDelay(200);
+        }
         else {
             NRF_LOG_INFO("enter hr_oximeter");
             timeout_cnt = 10;
@@ -200,11 +234,13 @@ TASK_GEN_ENTRY_STEP(1) {
       }
 
 TASK_GEN_ENTRY_STEP(2) {
-        if (!s_is_need_open_hr && !s_is_need_open_oximter) {
+        if (!s_is_need_open_hr && !s_is_need_open_oximter && \
+            !g_is_hr_oximeter_need_red_ir_raw_data)
+        {
             step++;
             continue;
         }
-        ret = (int)max30102_init();
+        ret = (int)max30102_api_init();
         if (!ret && !timeout_cnt) {
             step = 1;
             s_is_need_open_hr = false;
@@ -219,7 +255,7 @@ TASK_GEN_ENTRY_STEP(2) {
         }
         g_is_hr_oximeter_busy = true;
         max30102_user_event_callback_init(hr_oximeter_max30102_event_callback);
-        max30102_collect_data();
+        max30102_api_collect_data();
         // memset(&app_cmd, 0, sizeof(struct app_gen_command));
 #if 0
         app_cmd.id = CMD_D2H_ID_GET_TASK;
@@ -241,11 +277,12 @@ TASK_GEN_ENTRY_STEP(2) {
       }
 
 TASK_GEN_ENTRY_STEP(3) {
-        ret = max30102_exit();
+        ret = max30102_api_exit();
         g_is_need_stop_hr_spo2 = false;
         s_is_need_open_hr = false;
         s_is_need_open_oximter = false;
         g_is_hr_oximeter_busy = false;
+        g_is_hr_oximeter_need_red_ir_raw_data = false;
         step = 1;
       }
     }

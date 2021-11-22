@@ -118,8 +118,8 @@ static int vibr_run_mix(void)
     char led_status = 1;
     bool is_vibr_run_mix_inited = false;
     unsigned int pwm_timeout = 0;
-    bool is_need_switch_on = false;
-    unsigned int vbir_keep_run_timestamp = 0;
+    bool is_need_switch_on = true;
+    unsigned int vbir_keep_run_timestamp = 13;
 
     NRF_LOG_INFO("vibr_run_mix start");
 
@@ -141,15 +141,11 @@ retry:
             if (ret && time_exit_show_gap < 20) {
                 goto next1;
             }
-            if (time_exit_show_gap >= CONFIG_SHOW_BATTERY_PERCENT_BY_LED_VBIRT_KEEP_TIME) {
-                is_need_show_power_by_vbir_led = false;
-                goto next1;
-            }
 
             ///< LED灯根据电量显示
             ///< 1) 绿色表示电量大于80%；
-            ///< 2) 红色表示低于20%；
-            ///< 3）红灯闪烁 + 马达震动5秒表示电量低于10%
+            ///< 2) 红色表示低于20%；3.15V
+            ///< 3）红灯闪烁 + 马达震动5秒表示电量低于10%。3.025V
             if (power_percent < 10) {
                 if (!is_vibr_run_mix_inited) {
                     vibr_pwm_init();
@@ -175,8 +171,10 @@ retry:
                         pwm_timeout--;
                         vTaskDelay(25);
                     }
-                    if (time_exit_show_gap >= CONFIG_SHOW_BATTERY_PERCENT_BY_LED_VBIRT_KEEP_TIME)
+                    if (time_exit_show_gap >= CONFIG_SHOW_BATTERY_PERCENT_BY_LED_VBIRT_KEEP_TIME) {
+                        is_need_show_power_by_vbir_led = false;
                         break;
+                    }
                     vTaskDelay(25);
                     vbir_keep_run_timestamp++;
                     if (vbir_keep_run_timestamp > 12) {
@@ -191,10 +189,24 @@ retry:
                     vTaskDelay(25);
                 }
             }
-            else if (10 < power_percent && power_percent <= 20)
+            ///< 3.15V
+            else if (10 < power_percent && power_percent <= 20) {
+                if (time_exit_show_gap >= 23) {
+                    is_need_show_power_by_vbir_led = false;
+                    break;
+                }
+                vTaskDelay(25);
                 led_3gpio_set_led(1, 0, 0);
-            else if (20 < power_percent)
+            }
+            ///< 3.025V
+            else if (20 < power_percent) {
+                if (time_exit_show_gap >= 23) {
+                    is_need_show_power_by_vbir_led = false;
+                    break;
+                }
+                vTaskDelay(25);
                 led_3gpio_set_led(0, 1, 0);
+            }
          }
 
 next1:
@@ -241,7 +253,7 @@ next1:
         }
 
 next2:
-        vTaskDelay(300);
+        vTaskDelay(200);
         time_exit_show_gap++;
         time_turnon_led_gap++;
     }

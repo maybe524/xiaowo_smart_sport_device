@@ -34,3 +34,9 @@
 #define CHECK_MARKS(v, m)           ((v) & (m))
 
 extern unsigned int xPortGetSysTick(void);
+extern unsigned int app_get_time_stamp(void);
+
+//#define kprintf(format, ...)        NRF_LOG_INFO("%08d: "format"", app_get_time_stamp(), ##__VA_ARGS__)
+#define kprintf        NRF_LOG_INFO
+
+#define ARRAY_SIZE(array)           (sizeof(array) / sizeof(array[0]))
